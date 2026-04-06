@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "155363460262",
+    "firebase_url": "https://canvasx-2001-default-rtdb.firebaseio.com",
+    "project_id": "canvasx-2001",
+    "storage_bucket": "canvasx-2001.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:155363460262:android:83905329d45a6e2770e067",
+        "android_client_info": {
+          "package_name": "com.my_app.art_collab"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "155363460262-oa8r43bv9a42g4mh7hentg6ifk6g43lh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.my_app.art_collab",
+            "certificate_hash": "45b64b0606769a0e1efe71e37751fbe873513409"
+          }
+        },
+        {
+          "client_id": "155363460262-c77lrlquv3d372mb1kvpb6vqpvi5mtls.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC1LadKPzRV2TNx-Ffrd6BOr82pVankOKs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "155363460262-c77lrlquv3d372mb1kvpb6vqpvi5mtls.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
