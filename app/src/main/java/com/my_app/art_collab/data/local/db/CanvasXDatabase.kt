@@ -7,7 +7,7 @@ import com.my_app.art_collab.data.local.db.entity.CanvasEntity
 
 @Database(
     entities = [CanvasEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class CanvasXDatabase : RoomDatabase() {

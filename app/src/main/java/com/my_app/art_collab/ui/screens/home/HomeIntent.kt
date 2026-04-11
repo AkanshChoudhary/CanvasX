@@ -25,5 +25,6 @@ sealed class HomeIntent {
     /** Clears one-shot navigation after opening a joined canvas so back from editor returns to home. */
     data object ConsumeJoinedCanvasId : HomeIntent()
     data object ClearError : HomeIntent()
+    data object SignOut : HomeIntent()
 }
 

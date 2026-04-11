@@ -15,5 +15,7 @@ interface CanvasRepository {
 
     suspend fun removeCollaboratorFromCanvas(canvasId:String, userIdToRemove:String)
     fun syncCanvasesFromRemote()
+
+    suspend fun updateThumbnail(canvasId: String, absolutePath: String)
 }
 

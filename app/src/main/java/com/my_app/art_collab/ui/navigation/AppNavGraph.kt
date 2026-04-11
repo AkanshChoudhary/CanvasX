@@ -38,9 +38,6 @@ fun AppNavGraph(
         // ── Home ─────────────────────────────────────────────────────────────
         composable<Screen.Home> {
             HomeScreen(
-                onOpenSettings = {
-                    navController.navigate(Screen.Settings)
-                },
                 onOpenNewCanvas = { canvasId, name, widthPx, heightPx ->
                     navController.navigate(
                         Screen.NewCanvas(
@@ -50,6 +47,12 @@ fun AppNavGraph(
                             heightPx = heightPx
                         )
                     )
+                },
+                onLoggedOut = {
+                    navController.navigate(Screen.Auth) {
+                        popUpTo(Screen.Home) { inclusive = true }
+                        launchSingleTop = true
+                    }
                 }
             )
         }
@@ -64,12 +67,6 @@ fun AppNavGraph(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-
-        // ── Settings ─────────────────────────────────────────────────────────
-        composable<Screen.Settings> {
-            // TODO: SettingsScreen will be implemented later
-        }
-
 
     }
 }

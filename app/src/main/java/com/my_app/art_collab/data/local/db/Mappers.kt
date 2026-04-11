@@ -2,6 +2,7 @@ package com.my_app.art_collab.data.local.db
 
 import com.my_app.art_collab.data.local.db.entity.CanvasEntity
 import com.my_app.art_collab.domain.model.Canvas
+import com.my_app.art_collab.domain.model.CanvasMember
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -15,10 +16,10 @@ fun CanvasEntity.toDomain(): Canvas = Canvas(
     name = name,
     widthPx = widthPx,
     heightPx = heightPx,
-    collaboratorIds = try {
-        json.decodeFromString<List<String>>(collaboratorIdsJson)
+    members = try {
+        json.decodeFromString<Map<String, CanvasMember>>(membersJson)
     } catch (_: Exception) {
-        emptyList()
+        emptyMap()
     },
     shareCode = shareCode,
     isViewOnly = isViewOnly,
@@ -34,7 +35,7 @@ fun Canvas.toEntity(): CanvasEntity = CanvasEntity(
     name = name,
     widthPx = widthPx,
     heightPx = heightPx,
-    collaboratorIdsJson = json.encodeToString(collaboratorIds),
+    membersJson = json.encodeToString(members),
     shareCode = shareCode,
     isViewOnly = isViewOnly,
     createdAt = createdAt,

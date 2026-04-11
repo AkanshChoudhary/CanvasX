@@ -33,6 +33,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.TopAppBar
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -40,6 +41,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +54,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.my_app.art_collab.ui.screens.canvas_editor.components.AddLayerSheet
@@ -62,6 +65,7 @@ import com.my_app.art_collab.ui.screens.canvas_editor.components.CreateTextLayer
 import com.my_app.art_collab.ui.screens.canvas_editor.components.EffectChainSheet
 import com.my_app.art_collab.ui.screens.canvas_editor.components.LayerPanel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +77,8 @@ fun CanvasEditorScreen(
     onNavigateBack: () -> Unit
 ) {
     val viewModel: CanvasEditorViewModel = hiltViewModel()
+    val scope = rememberCoroutineScope()
+    val localLifecycleOwner = LocalLifecycleOwner.current
     val layers by viewModel.layers.collectAsState()
     val selectedLayerId by viewModel.selectedLayerId.collectAsState()
     val compositedBitmap by viewModel.compositedBitmap.collectAsState()
@@ -98,8 +104,9 @@ fun CanvasEditorScreen(
         }
     }
 
-    LaunchedEffect(viewModel) {
+    LaunchedEffect(canvasId, viewModel) {
         viewModel.exitCanvasAfterKick.collect {
+            viewModel.awaitPersistThumbnailForLeave(canvasId)
             onNavigateBack()
         }
     }
@@ -111,6 +118,27 @@ fun CanvasEditorScreen(
     LaunchedEffect(canvasId, widthPx, heightPx) {
         if (widthPx > 0 && heightPx > 0) {
             viewModel.loadCanvasLayers(canvasId)
+        }
+    }
+
+    LaunchedEffect(canvasId) {
+        viewModel.startIdleThumbnailCollector(canvasId)
+    }
+
+    DisposableEffect(localLifecycleOwner, canvasId) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                viewModel.onLocalLifecycleStopThumbnail(canvasId)
+            }
+        }
+        localLifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { localLifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    BackHandler {
+        scope.launch {
+            viewModel.awaitPersistThumbnailForLeave(canvasId)
+            onNavigateBack()
         }
     }
 
@@ -147,7 +175,14 @@ fun CanvasEditorScreen(
             TopAppBar(
                 title = { Text(name) },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                viewModel.awaitPersistThumbnailForLeave(canvasId)
+                                onNavigateBack()
+                            }
+                        }
+                    ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }

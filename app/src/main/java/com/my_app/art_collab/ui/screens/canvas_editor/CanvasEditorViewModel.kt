@@ -19,6 +19,7 @@ import com.my_app.art_collab.data.repository.asFirebaseFloat
 import com.my_app.art_collab.data.repository.asFirebaseInt
 import com.my_app.art_collab.domain.usecase.canvas.DeleteLayerImageUseCase
 import com.my_app.art_collab.domain.usecase.canvas.FetchLayersUseCase
+import com.my_app.art_collab.domain.usecase.canvas.PersistCanvasThumbnailUseCase
 import com.my_app.art_collab.domain.usecase.canvas.PushLayerOpUseCase
 import com.my_app.art_collab.domain.usecase.canvas.UploadLayerImageUseCase
 import com.my_app.art_collab.engine.GeminiApiClient
@@ -38,7 +39,9 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.FlowPreview
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -56,6 +59,7 @@ sealed interface AiGenerationState {
     data class Error(val message: String) : AiGenerationState
 }
 
+@OptIn(FlowPreview::class)
 @HiltViewModel
 class CanvasEditorViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
@@ -65,7 +69,8 @@ class CanvasEditorViewModel @Inject constructor(
     private val uploadLayerImageUseCase: UploadLayerImageUseCase,
     private val deleteLayerImageUseCase: DeleteLayerImageUseCase,
     private val pushLayerOpUseCase: PushLayerOpUseCase,
-    private val fetchLayersUseCase: FetchLayersUseCase
+    private val fetchLayersUseCase: FetchLayersUseCase,
+    private val persistCanvasThumbnailUseCase: PersistCanvasThumbnailUseCase,
 ) : ViewModel() {
 
     private val _layers = MutableStateFlow<List<Layer>>(emptyList())
@@ -106,6 +111,10 @@ class CanvasEditorViewModel @Inject constructor(
     private val transformThrottle = OpThrottle(intervalMs = 50L)
     private val effectThrottle = OpThrottle(intervalMs = 50L)
     private var opsListenerJob: Job? = null
+    private var thumbnailIdleJob: Job? = null
+
+    private val thumbnailSaveMutex = Mutex()
+    private var lastSavedCompositeGeneration: Long = -1L
 
     /** Ensures [loadCanvasLayers] and [refreshHydrationAfterBackground] never interleave (clearing preload/cache). */
     private val canvasHydrationMutex = Mutex()
@@ -204,6 +213,7 @@ class CanvasEditorViewModel @Inject constructor(
         // collaborator-added solid/text/image layers until reload).
         viewModelScope.launch {
             canvasHydrationMutex.withLock {
+                lastSavedCompositeGeneration = -1L
                 _canvasInteractionBlocked.value = true
                 _preloadedRemoteBitmaps.value = emptyMap()
                 _isLoadingLayers.value = true
@@ -262,6 +272,7 @@ class CanvasEditorViewModel @Inject constructor(
                     _canvasInteractionBlocked.value = false
                 }
             }
+            persistThumbnailSnapshot(canvasId)
         }
     }
 
@@ -296,6 +307,60 @@ class CanvasEditorViewModel @Inject constructor(
                     }
                 } finally {
                     _canvasInteractionBlocked.value = false
+                }
+            }
+            persistThumbnailSnapshot(canvasId)
+        }
+    }
+
+    /**
+     * Debounced on [RenderEngine.compositeGeneration] — one save after ~[THUMBNAIL_IDLE_DEBOUNCE_MS] quiet.
+     */
+    fun startIdleThumbnailCollector(canvasId: String) {
+        thumbnailIdleJob?.cancel()
+        thumbnailIdleJob = viewModelScope.launch {
+            renderEngine.compositeGeneration
+                .debounce(THUMBNAIL_IDLE_DEBOUNCE_MS)
+                .collect {
+                    if (!_canvasInteractionBlocked.value) {
+                        persistThumbnailSnapshot(canvasId)
+                    }
+                }
+        }
+    }
+
+    fun onLocalLifecycleStopThumbnail(canvasId: String) {
+        viewModelScope.launch {
+            persistThumbnailSnapshot(canvasId)
+        }
+    }
+
+    suspend fun awaitPersistThumbnailForLeave(canvasId: String) {
+        persistThumbnailSnapshot(canvasId)
+    }
+
+    private suspend fun persistThumbnailSnapshot(canvasId: String) {
+        if (canvasId.isBlank()) return
+        thumbnailSaveMutex.withLock {
+            while (true) {
+                val gen = renderEngine.compositeGeneration.value
+                if (gen <= lastSavedCompositeGeneration) return@withLock
+                val source = renderEngine.compositedBitmap.value
+                if (source == null || source.isRecycled) {
+                    lastSavedCompositeGeneration = gen
+                    return@withLock
+                }
+                val copy = withContext(Dispatchers.Default) {
+                    source.copy(source.config ?: Bitmap.Config.ARGB_8888, false)
+                }
+                try {
+                    persistCanvasThumbnailUseCase(canvasId, copy)
+                    lastSavedCompositeGeneration = gen
+                } catch (e: Exception) {
+                    Log.w(LayerImageDebug.TAG, "persistThumbnailSnapshot failed canvasId=$canvasId", e)
+                    return@withLock
+                } finally {
+                    copy.recycle()
                 }
             }
         }
@@ -1090,12 +1155,14 @@ class CanvasEditorViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        thumbnailIdleJob?.cancel()
         opsListenerJob?.cancel()
         renderEngine.invalidateAll()
     }
 
     companion object {
         private const val HYDRATION_TIMEOUT_MS = 60_000L
+        private const val THUMBNAIL_IDLE_DEBOUNCE_MS = 1500L
     }
     fun exportCompositeToGallery(canvasDisplayName: String){
         viewModelScope.launch {

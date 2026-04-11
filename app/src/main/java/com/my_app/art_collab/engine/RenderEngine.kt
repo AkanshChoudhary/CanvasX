@@ -49,6 +49,10 @@ class RenderEngine @Inject constructor(
     private val _compositedBitmap = MutableStateFlow<Bitmap?>(null)
     val compositedBitmap: StateFlow<Bitmap?> = _compositedBitmap.asStateFlow()
 
+    /** Increments whenever a new composited frame is published (for thumbnail generation gating). */
+    private val _compositeGeneration = MutableStateFlow(0L)
+    val compositeGeneration: StateFlow<Long> = _compositeGeneration.asStateFlow()
+
     private val _isRendering = MutableStateFlow(false)
     val isRendering: StateFlow<Boolean> = _isRendering.asStateFlow()
 
@@ -58,6 +62,7 @@ class RenderEngine @Inject constructor(
             try {
                 val result = renderFrame(request)
                 _compositedBitmap.value = result
+                _compositeGeneration.value = _compositeGeneration.value + 1L
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

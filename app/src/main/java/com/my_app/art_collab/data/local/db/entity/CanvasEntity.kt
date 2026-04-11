@@ -11,8 +11,8 @@ data class CanvasEntity(
     val name: String,
     val widthPx: Int,
     val heightPx: Int,
-    @ColumnInfo(name = "collaborator_ids_json")
-    val collaboratorIdsJson: String,
+    @ColumnInfo(name = "members_json")
+    val membersJson: String,
     val shareCode: String = "",
     val isViewOnly: Boolean,
     val isPinned: Boolean,

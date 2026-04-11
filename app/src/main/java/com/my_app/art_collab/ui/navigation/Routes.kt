@@ -10,9 +10,6 @@ sealed interface Screen {
     data object Home : Screen
 
     @Serializable
-    data object Settings : Screen
-
-    @Serializable
     data class NewCanvas(
         val canvasId: String,
         val name: String,

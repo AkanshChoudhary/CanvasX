@@ -10,7 +10,8 @@ data class Canvas(
     val widthPx: Int,
     val heightPx: Int,
     val layers: List<Layer> = emptyList(),
-    val collaboratorIds: List<String> = emptyList(),
+    /** Canvas access: userId → membership (authoritative shape matches Firestore `members`). */
+    val members: Map<String, CanvasMember> = emptyMap(),
     val shareCode: String = "",
     val isViewOnly: Boolean = false,
     val createdAt: Long,

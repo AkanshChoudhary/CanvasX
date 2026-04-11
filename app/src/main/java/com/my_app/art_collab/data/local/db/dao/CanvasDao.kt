@@ -33,5 +33,8 @@ interface CanvasDao {
 
     @Query("DELETE FROM canvases WHERE id NOT IN (:ids)")
     suspend fun deleteCanvasesNotIn(ids: List<String>)
+
+    @Query("DELETE FROM canvases")
+    suspend fun deleteAllCanvases()
 }
 

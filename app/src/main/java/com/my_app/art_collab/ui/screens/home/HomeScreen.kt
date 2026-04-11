@@ -18,17 +18,19 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GroupAdd
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -78,14 +80,17 @@ import com.my_app.art_collab.ui.screens.home.components.NewCanvasBottomSheet
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onOpenSettings: () -> Unit = {},
     onOpenNewCanvas: (String, String, Int, Int) -> Unit = { _, _, _, _ -> },  // id, name, widthPx, heightPx
+    onLoggedOut: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val filteredCanvases by viewModel.filteredCanvases.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var overflowMenuExpanded by remember { mutableStateOf(false) }
+    var showLogoutConfirm by remember { mutableStateOf(false) }
+    var showAbout by remember { mutableStateOf(false) }
 
     // Error handling
     LaunchedEffect(uiState.error) {
@@ -106,6 +111,12 @@ fun HomeScreen(
         viewModel.handleIntent(HomeIntent.ConsumeJoinedCanvasId)
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.logoutCompleted.collect {
+            onLoggedOut()
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -113,7 +124,11 @@ fun HomeScreen(
                 SearchBar(
                     query = uiState.searchQuery,
                     onQueryChange = { viewModel.handleIntent(HomeIntent.SetSearchQuery(it)) },
-                    onClose = { viewModel.handleIntent(HomeIntent.SetSearchActive(false)) }
+                    onClose = { viewModel.handleIntent(HomeIntent.SetSearchActive(false)) },
+                    overflowMenuExpanded = overflowMenuExpanded,
+                    onOverflowMenuExpandedChange = { overflowMenuExpanded = it },
+                    onAboutClick = { showAbout = true },
+                    onLogoutClick = { showLogoutConfirm = true }
                 )
             } else {
                 TopAppBar(
@@ -124,13 +139,16 @@ fun HomeScreen(
                         )
                     },
                     actions = {
+                        HomeOverflowMenu(
+                            expanded = overflowMenuExpanded,
+                            onExpandedChange = { overflowMenuExpanded = it },
+                            onAboutClick = { showAbout = true },
+                            onLogoutClick = { showLogoutConfirm = true }
+                        )
                         IconButton(
                             onClick = { viewModel.handleIntent(HomeIntent.SetSearchActive(true)) }
                         ) {
                             Icon(Icons.Filled.Search, contentDescription = "Search")
-                        }
-                        IconButton(onClick = onOpenSettings) {
-                            Icon(Icons.Filled.AccountCircle, contentDescription = "Settings")
                         }
                     }
                 )
@@ -217,8 +235,12 @@ fun HomeScreen(
                         onRename = { canvas ->
                             viewModel.handleIntent(HomeIntent.ShowRenameDialog(canvas))
                         },
-                        onRemoveContributor = { canvas->
-                            viewModel.handleIntent(HomeIntent.RemoveContributor(canvas.id,canvas.collaboratorIds.single { it!= FirebaseAuth.getInstance().currentUser?.uid }))
+                        onRemoveContributor = { canvas ->
+                            val uid = FirebaseAuth.getInstance().currentUser?.uid
+                            val toRemove = uid?.let { u -> canvas.members.keys.firstOrNull { it != u } }
+                            if (uid != null && toRemove != null) {
+                                viewModel.handleIntent(HomeIntent.RemoveContributor(canvas.id, toRemove))
+                            }
                         },
                         onTogglePin = { canvas ->
                             viewModel.handleIntent(
@@ -273,6 +295,20 @@ fun HomeScreen(
             onDismiss = { viewModel.handleIntent(HomeIntent.DismissDeleteDialog) }
         )
     }
+
+    if (showLogoutConfirm) {
+        LogoutConfirmationDialog(
+            onConfirm = {
+                showLogoutConfirm = false
+                viewModel.handleIntent(HomeIntent.SignOut)
+            },
+            onDismiss = { showLogoutConfirm = false }
+        )
+    }
+
+    if (showAbout) {
+        AboutDialog(onDismiss = { showAbout = false })
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -280,7 +316,11 @@ fun HomeScreen(
 private fun SearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    overflowMenuExpanded: Boolean,
+    onOverflowMenuExpandedChange: (Boolean) -> Unit,
+    onAboutClick: () -> Unit,
+    onLogoutClick: () -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
 
@@ -312,10 +352,98 @@ private fun SearchBar(
             }
         },
         actions = {
+            HomeOverflowMenu(
+                expanded = overflowMenuExpanded,
+                onExpandedChange = onOverflowMenuExpandedChange,
+                onAboutClick = onAboutClick,
+                onLogoutClick = onLogoutClick
+            )
             if (query.isNotEmpty()) {
                 IconButton(onClick = { onQueryChange("") }) {
                     Icon(Icons.Filled.Close, contentDescription = "Clear")
                 }
+            }
+        }
+    )
+}
+
+@Composable
+private fun HomeOverflowMenu(
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onAboutClick: () -> Unit,
+    onLogoutClick: () -> Unit,
+) {
+    Box {
+        IconButton(onClick = { onExpandedChange(true) }) {
+            Icon(Icons.Filled.Menu, contentDescription = "Menu")
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpandedChange(false) }
+        ) {
+            DropdownMenuItem(
+                text = { Text("About") },
+                onClick = {
+                    onExpandedChange(false)
+                    onAboutClick()
+                },
+                leadingIcon = {
+                    Icon(Icons.Outlined.Info, contentDescription = null)
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Log out") },
+                onClick = {
+                    onExpandedChange(false)
+                    onLogoutClick()
+                },
+                leadingIcon = {
+                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun LogoutConfirmationDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Log out?") },
+        text = {
+            Text("You will be signed out of this device. You can sign in again at any time.")
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Log out")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+private fun AboutDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("About CanvasX") },
+        text = {
+            Text(
+                "CanvasX is a collaborative drawing app. This is sample about text; " +
+                    "replace it with version info, credits, or links when you are ready."
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("OK")
             }
         }
     )
@@ -409,12 +537,15 @@ private fun CanvasGrid(
                             Icon(Icons.Filled.Edit, contentDescription = null)
                         }
                     )
-                    if(canvas.ownerId==FirebaseAuth.getInstance().currentUser?.uid)
-                    {
+                    val currentUid = FirebaseAuth.getInstance().currentUser?.uid
+                    val otherMemberId = currentUid?.let { uid ->
+                        canvas.members.keys.firstOrNull { it != uid }
+                    }
+                    if (canvas.ownerId == currentUid && otherMemberId != null) {
                         DropdownMenuItem(
-                        text = { Text("Remove Contributor") },
-                        onClick = { onRemoveContributor(canvas) },
-                        leadingIcon = {
+                            text = { Text("Remove Contributor") },
+                            onClick = { onRemoveContributor(canvas) },
+                            leadingIcon = {
                                 Icon(Icons.Filled.PersonRemove, contentDescription = null)
                             },
                         )

@@ -11,10 +11,13 @@ import com.my_app.art_collab.domain.usecase.canvas.GetCanvasListUseCase
 import com.my_app.art_collab.domain.usecase.canvas.JoinCanvasUseCase
 import com.my_app.art_collab.domain.usecase.canvas.PushLayerOpUseCase
 import com.my_app.art_collab.domain.usecase.canvas.RemoveContributorUseCase
+import com.my_app.art_collab.domain.repository.AuthRepository
 import com.my_app.art_collab.domain.usecase.canvas.SyncCanvasesUseCase
 import com.my_app.art_collab.domain.usecase.canvas.UpdateCanvasUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,11 +39,15 @@ class HomeViewModel @Inject constructor(
     private val joinCanvasUseCase: JoinCanvasUseCase,
     private val removeContributorUseCase: RemoveContributorUseCase,
     private val pushLayerOpUseCase: PushLayerOpUseCase,
-    private val firebaseAuth: FirebaseAuth
+    private val firebaseAuth: FirebaseAuth,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState = _uiState.asStateFlow()
+
+    private val _logoutCompleted = Channel<Unit>(Channel.BUFFERED)
+    val logoutCompleted = _logoutCompleted.receiveAsFlow()
 
     val filteredCanvases: StateFlow<List<Canvas>> = combine(
         _uiState.map { it.canvases },
@@ -225,6 +232,17 @@ class HomeViewModel @Inject constructor(
 
             is HomeIntent.ClearError -> {
                 _uiState.update { it.copy(error = null) }
+            }
+
+            is HomeIntent.SignOut -> {
+                viewModelScope.launch {
+                    try {
+                        authRepository.signOut()
+                        _logoutCompleted.send(Unit)
+                    } catch (e: Exception) {
+                        _uiState.update { it.copy(error = e.message ?: "Sign out failed") }
+                    }
+                }
             }
         }
     }
