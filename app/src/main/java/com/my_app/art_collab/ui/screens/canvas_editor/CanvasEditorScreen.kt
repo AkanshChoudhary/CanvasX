@@ -80,6 +80,7 @@ fun CanvasEditorScreen(
     val aiState by viewModel.aiState.collectAsState()
     val canvasInteractionBlocked by viewModel.canvasInteractionBlocked.collectAsState()
     val preloadedRemoteBitmaps by viewModel.preloadedRemoteBitmaps.collectAsState()
+    val kickedFromCanvasOverlay by viewModel.kickedFromCanvasOverlay.collectAsState()
 
     var showLayersPanel by remember { mutableStateOf(false) }
     var showAddLayerSheet by remember { mutableStateOf(false) }
@@ -94,6 +95,12 @@ fun CanvasEditorScreen(
     LaunchedEffect(viewModel) {
         viewModel.exportMessages.collectLatest { message->
             snackbarHostState.showSnackbar(message)
+        }
+    }
+
+    LaunchedEffect(viewModel) {
+        viewModel.exitCanvasAfterKick.collect {
+            onNavigateBack()
         }
     }
     // Size must be set before hydration so the render engine can composite at the correct resolution.
@@ -318,6 +325,34 @@ fun CanvasEditorScreen(
                     CircularProgressIndicator()
                     Text(
                         text = "Loading canvas…",
+                        modifier = Modifier.padding(top = 16.dp),
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            }
+        }
+    }
+
+    if (kickedFromCanvasOverlay) {
+        Dialog(
+            onDismissRequest = {},
+            properties = DialogProperties(
+                dismissOnBackPress = false,
+                dismissOnClickOutside = false,
+                usePlatformDefaultWidth = false
+            )
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.55f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator()
+                    Text(
+                        text = "You were removed from this canvas",
                         modifier = Modifier.padding(top = 16.dp),
                         color = Color.White,
                         style = MaterialTheme.typography.bodyLarge

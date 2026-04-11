@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.GroupAdd
+import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
@@ -69,6 +70,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.google.firebase.auth.FirebaseAuth
 import com.my_app.art_collab.domain.model.Canvas
 import com.my_app.art_collab.ui.screens.home.components.CanvasCard
 import com.my_app.art_collab.ui.screens.home.components.NewCanvasBottomSheet
@@ -96,14 +98,12 @@ fun HomeScreen(
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
 
-    // Navigate to joined canvas
-    LaunchedEffect(uiState.joinedCanvasId) {
-        uiState.joinedCanvasId?.let { canvasId ->
-            val canvas = uiState.canvases.find { it.id == canvasId }
-            if (canvas != null) {
-                onOpenNewCanvas(canvas.id, canvas.name, canvas.widthPx, canvas.heightPx)
-            }
-        }
+    // Navigate once when join succeeds; consume id so returning from editor does not re-trigger.
+    LaunchedEffect(uiState.joinedCanvasId, uiState.canvases) {
+        val canvasId = uiState.joinedCanvasId ?: return@LaunchedEffect
+        val canvas = uiState.canvases.find { it.id == canvasId } ?: return@LaunchedEffect
+        onOpenNewCanvas(canvas.id, canvas.name, canvas.widthPx, canvas.heightPx)
+        viewModel.handleIntent(HomeIntent.ConsumeJoinedCanvasId)
     }
 
     Scaffold(
@@ -217,8 +217,8 @@ fun HomeScreen(
                         onRename = { canvas ->
                             viewModel.handleIntent(HomeIntent.ShowRenameDialog(canvas))
                         },
-                        onDuplicate = { canvas ->
-                            viewModel.handleIntent(HomeIntent.DuplicateCanvas(canvas))
+                        onRemoveContributor = { canvas->
+                            viewModel.handleIntent(HomeIntent.RemoveContributor(canvas.id,canvas.collaboratorIds.single { it!= FirebaseAuth.getInstance().currentUser?.uid }))
                         },
                         onTogglePin = { canvas ->
                             viewModel.handleIntent(
@@ -371,7 +371,7 @@ private fun CanvasGrid(
     onDismissContextMenu: () -> Unit,
     onCopyShareCode: (Canvas) -> Unit,
     onRename: (Canvas) -> Unit,
-    onDuplicate: (Canvas) -> Unit,
+    onRemoveContributor: (Canvas) -> Unit,
     onTogglePin: (Canvas) -> Unit,
     onDelete: (Canvas) -> Unit
 ) {
@@ -409,13 +409,16 @@ private fun CanvasGrid(
                             Icon(Icons.Filled.Edit, contentDescription = null)
                         }
                     )
-                    DropdownMenuItem(
-                        text = { Text("Duplicate") },
-                        onClick = { onDuplicate(canvas) },
+                    if(canvas.ownerId==FirebaseAuth.getInstance().currentUser?.uid)
+                    {
+                        DropdownMenuItem(
+                        text = { Text("Remove Contributor") },
+                        onClick = { onRemoveContributor(canvas) },
                         leadingIcon = {
-                            Icon(Icons.Filled.ContentCopy, contentDescription = null)
-                        }
-                    )
+                                Icon(Icons.Filled.PersonRemove, contentDescription = null)
+                            },
+                        )
+                    }
                     DropdownMenuItem(
                         text = {
                             Text(if (canvas.isPinned) "Unpin" else "Pin")

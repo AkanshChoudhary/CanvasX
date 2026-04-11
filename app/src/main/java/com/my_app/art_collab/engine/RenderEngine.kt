@@ -109,7 +109,7 @@ class RenderEngine @Inject constructor(
                                 layer,
                                 request.canvasWidthPx,
                                 request.canvasHeightPx
-                            )
+                            ) ?: return@async null
 
                             val effectApplied = if (layer.effectChain.isNotEmpty()) {
                                 effectProcessor.apply(
@@ -139,7 +139,7 @@ class RenderEngine @Inject constructor(
                     }
                 }
 
-            val freshBitmaps: Map<String, Bitmap> = parallelJobs.awaitAll().toMap()
+            val freshBitmaps: Map<String, Bitmap> = parallelJobs.awaitAll().filterNotNull().toMap()
             freshBitmaps.forEach { (id, bitmap) -> renderCache.put(id, bitmap) }
 
             // Step 2: Composite all layers bottom-to-top (sequential)
@@ -182,7 +182,7 @@ class RenderEngine @Inject constructor(
         layer: Layer,
         canvasWidth: Int,
         canvasHeight: Int
-    ): Bitmap {
+    ): Bitmap? {
         return when (layer.type) {
             LayerType.SOLID_COLOR -> {
                 createSolidBitmap(
@@ -195,15 +195,14 @@ class RenderEngine @Inject constructor(
                 withContext(Dispatchers.IO) {
                     val path = layer.sourceBitmapPath
                     val decoded = path?.let { loadBitmapFromPath(it, layer.id) }
-                    val result = decoded ?: createSolidBitmap(Color.TRANSPARENT, canvasWidth, canvasHeight)
                     if (decoded == null) {
                         Log.w(
                             LayerImageDebug.TAG,
-                            "loadSourceBitmap: using TRANSPARENT canvas-sized fallback id=${layer.id} " +
-                                "path=${LayerImageDebug.pathPreview(path)} (${canvasWidth}x${canvasHeight})"
+                            "loadSourceBitmap: decode failed, layer stays dirty for retry id=${layer.id} " +
+                                "path=${LayerImageDebug.pathPreview(path)}"
                         )
                     }
-                    result
+                    decoded
                 }
             }
             LayerType.TEXT -> {

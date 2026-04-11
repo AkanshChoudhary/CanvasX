@@ -9,7 +9,8 @@ sealed class HomeIntent {
     data class TogglePin(val canvasId: String, val isPinned: Boolean) : HomeIntent()
     data class RenameCanvas(val canvasId: String, val newName: String) : HomeIntent()
     data class CreateCanvas(val name: String, val widthPx: Int, val heightPx: Int) : HomeIntent()
-    data class DuplicateCanvas(val canvas: Canvas) : HomeIntent()
+
+    data class RemoveContributor(val canvasId: String, val toRemoveId: String) : HomeIntent()
     data class ShowContextMenu(val canvas: Canvas) : HomeIntent()
     data object DismissContextMenu : HomeIntent()
     data class ShowRenameDialog(val canvas: Canvas) : HomeIntent()
@@ -21,6 +22,8 @@ sealed class HomeIntent {
     data object ShowJoinCanvasDialog : HomeIntent()
     data object DismissJoinCanvasDialog : HomeIntent()
     data class JoinCanvas(val shareCode: String) : HomeIntent()
+    /** Clears one-shot navigation after opening a joined canvas so back from editor returns to home. */
+    data object ConsumeJoinedCanvasId : HomeIntent()
     data object ClearError : HomeIntent()
 }
 

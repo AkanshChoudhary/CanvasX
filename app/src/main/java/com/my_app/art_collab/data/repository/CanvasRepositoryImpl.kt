@@ -132,6 +132,14 @@ class CanvasRepositoryImpl @Inject constructor(
         return canvas
     }
 
+    override suspend fun removeCollaboratorFromCanvas(canvasId: String,userIdToRemove: String) {
+        firestore.collection("canvases")
+            .document(canvasId)
+            .update("collaboratorIds",
+                FieldValue.arrayRemove(userIdToRemove)).await()
+
+    }
+
     override fun syncCanvasesFromRemote() {
         val userId = firebaseAuth.currentUser?.uid ?: return
 

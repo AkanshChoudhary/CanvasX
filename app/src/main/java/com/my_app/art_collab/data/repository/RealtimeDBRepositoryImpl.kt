@@ -139,7 +139,7 @@ class RealtimeDBRepositoryImpl @Inject constructor() : RealtimeDBRepository {
     private fun parseOp(snapshot: DataSnapshot): LayerOp? {
         val id = snapshot.key ?: return null
         val userId = snapshot.child("userId").getValue(String::class.java) ?: return null
-        val layerId = snapshot.child("layerId").getValue(String::class.java) ?: return null
+        val layerId = snapshot.child("layerId").getValue(String::class.java) ?: ""
         val type = snapshot.child("type").getValue(String::class.java) ?: return null
         val payload = snapshot.child("payload").value as? Map<String, Any> ?: emptyMap()
         val timestamp = snapshot.child("timestamp").getValue(Long::class.java) ?: 0L

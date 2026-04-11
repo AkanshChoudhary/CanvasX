@@ -4,10 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.my_app.art_collab.domain.model.Canvas
+import com.my_app.art_collab.domain.model.LayerOp
 import com.my_app.art_collab.domain.usecase.canvas.CreateCanvasUseCase
 import com.my_app.art_collab.domain.usecase.canvas.DeleteCanvasUseCase
 import com.my_app.art_collab.domain.usecase.canvas.GetCanvasListUseCase
 import com.my_app.art_collab.domain.usecase.canvas.JoinCanvasUseCase
+import com.my_app.art_collab.domain.usecase.canvas.PushLayerOpUseCase
+import com.my_app.art_collab.domain.usecase.canvas.RemoveContributorUseCase
 import com.my_app.art_collab.domain.usecase.canvas.SyncCanvasesUseCase
 import com.my_app.art_collab.domain.usecase.canvas.UpdateCanvasUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,6 +34,8 @@ class HomeViewModel @Inject constructor(
     private val updateCanvasUseCase: UpdateCanvasUseCase,
     private val syncCanvasesUseCase: SyncCanvasesUseCase,
     private val joinCanvasUseCase: JoinCanvasUseCase,
+    private val removeContributorUseCase: RemoveContributorUseCase,
+    private val pushLayerOpUseCase: PushLayerOpUseCase,
     private val firebaseAuth: FirebaseAuth
 ) : ViewModel() {
 
@@ -125,21 +130,22 @@ class HomeViewModel @Inject constructor(
                 }
             }
 
-            is HomeIntent.DuplicateCanvas -> {
+            is HomeIntent.RemoveContributor -> {
                 viewModelScope.launch {
                     try {
-                        val now = System.currentTimeMillis()
-                        val copy = intent.canvas.copy(
-                            id = UUID.randomUUID().toString(),
-                            name = "${intent.canvas.name} Copy",
-                            createdAt = now,
-                            updatedAt = now,
-                            thumbnailLocalPath = null
+                        removeContributorUseCase.invoke(intent.canvasId, intent.toRemoveId)
+                        val ownerId = firebaseAuth.currentUser?.uid ?: return@launch
+                        val op = LayerOp(
+                            userId = ownerId,
+                            layerId = "_collab",
+                            type = "delete_collab",
+                            payload = mapOf("targetUserId" to intent.toRemoveId),
+                            timestamp = System.currentTimeMillis()
                         )
-                        createCanvasUseCase(copy)
+                        pushLayerOpUseCase(intent.canvasId, op, emptyMap())
                         _uiState.update { it.copy(contextMenuCanvas = null) }
                     } catch (e: Exception) {
-                        _uiState.update { it.copy(error = e.message) }
+                        _uiState.update { it.copy(error = e.message ?: "Failed to remove contributor") }
                     }
                 }
             }
@@ -211,6 +217,10 @@ class HomeViewModel @Inject constructor(
                         }
                     }
                 }
+            }
+
+            is HomeIntent.ConsumeJoinedCanvasId -> {
+                _uiState.update { it.copy(joinedCanvasId = null) }
             }
 
             is HomeIntent.ClearError -> {

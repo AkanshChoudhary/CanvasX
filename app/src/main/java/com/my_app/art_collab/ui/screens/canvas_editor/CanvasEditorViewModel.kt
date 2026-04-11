@@ -39,6 +39,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
@@ -94,9 +97,18 @@ class CanvasEditorViewModel @Inject constructor(
     val exportMessages: SharedFlow<String> = _exportMessages.asSharedFlow()
     private val _layerBlobUrls = mutableMapOf<String, String>()
 
+    private val kickFromCanvasPending = AtomicBoolean(false)
+    private val _kickedFromCanvasOverlay = MutableStateFlow(false)
+    val kickedFromCanvasOverlay: StateFlow<Boolean> = _kickedFromCanvasOverlay.asStateFlow()
+    private val _exitCanvasAfterKick = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val exitCanvasAfterKick: SharedFlow<Unit> = _exitCanvasAfterKick.asSharedFlow()
+
     private val transformThrottle = OpThrottle(intervalMs = 50L)
     private val effectThrottle = OpThrottle(intervalMs = 50L)
     private var opsListenerJob: Job? = null
+
+    /** Ensures [loadCanvasLayers] and [refreshHydrationAfterBackground] never interleave (clearing preload/cache). */
+    private val canvasHydrationMutex = Mutex()
 
     init {
         viewModelScope.launch {
@@ -182,6 +194,8 @@ class CanvasEditorViewModel @Inject constructor(
 
     fun loadCanvasLayers(canvasId: String) {
         opsListenerJob?.cancel()
+        kickFromCanvasPending.set(false)
+        _kickedFromCanvasOverlay.value = false
         val joinTime = System.currentTimeMillis()
         val currentUserId = firebaseAuth.currentUser?.uid ?: ""
 
@@ -189,51 +203,64 @@ class CanvasEditorViewModel @Inject constructor(
         // a slow fetch can overwrite _layers after remote ops were already applied (dropping
         // collaborator-added solid/text/image layers until reload).
         viewModelScope.launch {
-            _canvasInteractionBlocked.value = true
-            _preloadedRemoteBitmaps.value = emptyMap()
-            _isLoadingLayers.value = true
-            try {
-                val remoteLayers = fetchLayersUseCase(canvasId)
-                _layers.value = remoteLayers
-                renderEngine.invalidateAll()
-                remoteLayers.filter { it.type == LayerType.IMAGE || it.type == LayerType.AI_GENERATED }.forEach { l ->
-                    Log.d(
-                        LayerImageDebug.TAG,
-                        "loadCanvasLayers: in-memory layer id=${l.id} path=${LayerImageDebug.pathPreview(l.sourceBitmapPath)} " +
-                            "effects=${l.effectChain.size}"
-                    )
+            canvasHydrationMutex.withLock {
+                _canvasInteractionBlocked.value = true
+                _preloadedRemoteBitmaps.value = emptyMap()
+                _isLoadingLayers.value = true
+                var fetchOk = false
+                try {
+                    val remoteLayers = fetchLayersUseCase(canvasId)
+                    _layers.value = remoteLayers
+                    renderEngine.invalidateAll()
+                    fetchOk = true
+                    remoteLayers.filter { it.type == LayerType.IMAGE || it.type == LayerType.AI_GENERATED }.forEach { l ->
+                        Log.d(
+                            LayerImageDebug.TAG,
+                            "loadCanvasLayers: in-memory layer id=${l.id} path=${LayerImageDebug.pathPreview(l.sourceBitmapPath)} " +
+                                "effects=${l.effectChain.size}"
+                        )
+                    }
+                } catch (e: Exception) {
+                    Log.e(LayerImageDebug.TAG, "loadCanvasLayers: fetch failed", e)
+                    e.printStackTrace()
+                } finally {
+                    _isLoadingLayers.value = false
                 }
-            } catch (e: Exception) {
-                Log.e(LayerImageDebug.TAG, "loadCanvasLayers: fetch failed", e)
-                e.printStackTrace()
-            } finally {
-                _isLoadingLayers.value = false
-            }
 
-            opsListenerJob = viewModelScope.launch {
-                fetchLayersUseCase.observeOps(canvasId, joinTime).collect { op ->
-                    if (op.userId != currentUserId) {
-                        applyRemoteOp(op)
+                opsListenerJob = viewModelScope.launch {
+                    fetchLayersUseCase.observeOps(canvasId, joinTime).collect { op ->
+                        if (op.type == "delete_collab") {
+                            val target = op.payload["targetUserId"] as? String
+                            if (currentUserId.isNotEmpty() && target == currentUserId) {
+                                onKickedAsCollaborator()
+                            }
+                            return@collect
+                        }
+                        if (op.userId != currentUserId) {
+                            applyRemoteOp(op)
+                        }
                     }
                 }
-            }
 
-            try {
-                val hydrationOk = withTimeoutOrNull(HYDRATION_TIMEOUT_MS) {
-                    preloadRemoteLayerImages(_layers.value)
-                    awaitRenderSettled()
+                try {
+                    if (fetchOk) {
+                        val hydrationOk = withTimeoutOrNull(HYDRATION_TIMEOUT_MS) {
+                            preloadRemoteLayerImages(_layers.value)
+                            awaitRenderSettled()
+                        }
+                        if (hydrationOk == null) {
+                            Log.w(
+                                LayerImageDebug.TAG,
+                                "loadCanvasLayers: hydration TIMEOUT ${HYDRATION_TIMEOUT_MS}ms canvasId=$canvasId " +
+                                    "(preload/render may be incomplete)"
+                            )
+                        } else {
+                            Log.d(LayerImageDebug.TAG, "loadCanvasLayers: hydration finished canvasId=$canvasId")
+                        }
+                    }
+                } finally {
+                    _canvasInteractionBlocked.value = false
                 }
-                if (hydrationOk == null) {
-                    Log.w(
-                        LayerImageDebug.TAG,
-                        "loadCanvasLayers: hydration TIMEOUT ${HYDRATION_TIMEOUT_MS}ms canvasId=$canvasId " +
-                            "(preload/render may be incomplete)"
-                    )
-                } else {
-                    Log.d(LayerImageDebug.TAG, "loadCanvasLayers: hydration finished canvasId=$canvasId")
-                }
-            } finally {
-                _canvasInteractionBlocked.value = false
             }
         }
     }
@@ -244,26 +271,32 @@ class CanvasEditorViewModel @Inject constructor(
      */
     fun refreshHydrationAfterBackground(canvasId: String) {
         viewModelScope.launch {
-            _canvasInteractionBlocked.value = true
-            _preloadedRemoteBitmaps.value = emptyMap()
-            try {
-                val hydrationOk = withTimeoutOrNull(HYDRATION_TIMEOUT_MS) {
-                    try {
-                        val remoteLayers = fetchLayersUseCase(canvasId)
-                        _layers.value = remoteLayers
-                        renderEngine.invalidateAll()
-                    } catch (e: Exception) {
-                        Log.e(LayerImageDebug.TAG, "refreshHydrationAfterBackground: fetch failed", e)
-                        e.printStackTrace()
+            canvasHydrationMutex.withLock {
+                _canvasInteractionBlocked.value = true
+                _preloadedRemoteBitmaps.value = emptyMap()
+                try {
+                    var fetchOk = false
+                    val hydrationOk = withTimeoutOrNull(HYDRATION_TIMEOUT_MS) {
+                        try {
+                            val remoteLayers = fetchLayersUseCase(canvasId)
+                            _layers.value = remoteLayers
+                            renderEngine.invalidateAll()
+                            fetchOk = true
+                        } catch (e: Exception) {
+                            Log.e(LayerImageDebug.TAG, "refreshHydrationAfterBackground: fetch failed", e)
+                            e.printStackTrace()
+                        }
+                        if (fetchOk) {
+                            preloadRemoteLayerImages(_layers.value)
+                            awaitRenderSettled()
+                        }
                     }
-                    preloadRemoteLayerImages(_layers.value)
-                    awaitRenderSettled()
+                    if (hydrationOk == null) {
+                        Log.w(LayerImageDebug.TAG, "refreshHydrationAfterBackground: TIMEOUT ${HYDRATION_TIMEOUT_MS}ms")
+                    }
+                } finally {
+                    _canvasInteractionBlocked.value = false
                 }
-                if (hydrationOk == null) {
-                    Log.w(LayerImageDebug.TAG, "refreshHydrationAfterBackground: TIMEOUT ${HYDRATION_TIMEOUT_MS}ms")
-                }
-            } finally {
-                _canvasInteractionBlocked.value = false
             }
         }
     }
@@ -367,6 +400,16 @@ class CanvasEditorViewModel @Inject constructor(
         "scaleX" to t.scaleX.toDouble(),
         "scaleY" to t.scaleY.toDouble()
     )
+
+    private fun onKickedAsCollaborator() {
+        if (!kickFromCanvasPending.compareAndSet(false, true)) return
+        _kickedFromCanvasOverlay.value = true
+        viewModelScope.launch {
+            delay(5_000L)
+            _kickedFromCanvasOverlay.value = false
+            _exitCanvasAfterKick.emit(Unit)
+        }
+    }
 
     private fun applyRemoteOp(op: LayerOp) {
         when (op.type) {

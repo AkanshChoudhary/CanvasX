@@ -13,6 +13,7 @@ interface CanvasRepository {
     suspend fun renameCanvas(canvasId: String, newName: String)
     suspend fun joinCanvasByCode(shareCode: String, userId: String): Canvas
 
+    suspend fun removeCollaboratorFromCanvas(canvasId:String, userIdToRemove:String)
     fun syncCanvasesFromRemote()
 }
 
