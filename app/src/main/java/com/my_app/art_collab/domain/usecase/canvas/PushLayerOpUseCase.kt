@@ -11,7 +11,7 @@ class PushLayerOpUseCase @Inject constructor(private val realtimeDBRepository: R
         realtimeDBRepository.pushOpWithSnapshot(canvasId, op, snapshotUpdate)
     }
 
-    fun buildLayerDataMap(canvasId: String, layer: Layer, blobUrl: String?): Map<String, Any?> {
-        return realtimeDBRepository.buildLayerDataMap(canvasId, layer, blobUrl)
+    fun buildLayerDataMap(canvasId: String, layer: Layer, blobUrl: String?, opType: String): Map<String, Any?> {
+        return realtimeDBRepository.buildLayerDataMap(canvasId, layer, blobUrl, opType)
     }
 }

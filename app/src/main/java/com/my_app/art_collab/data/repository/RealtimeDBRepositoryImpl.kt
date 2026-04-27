@@ -43,59 +43,109 @@ class RealtimeDBRepositoryImpl @Inject constructor() : RealtimeDBRepository {
         }
     }
 
-    override fun buildLayerDataMap(canvasId: String, layer: Layer, blobUrl: String?): Map<String, Any?> {
-        // Prefer explicit upload URL; otherwise keep the layer's current path so ops (effects,
-        // transform, etc.) never wipe Firebase blobUrl when _layerBlobUrls[layerId] is empty.
-        val resolvedBlob = when {
-            !blobUrl.isNullOrBlank() -> blobUrl
-            !layer.sourceBitmapPath.isNullOrBlank() -> layer.sourceBitmapPath!!
-            else -> ""
+    override fun buildLayerDataMap(
+        canvasId: String,
+        layer: Layer,
+        blobUrl: String?,
+        opType: String
+    ): Map<String, Any?> {
+        val layerBase = "canvases/$canvasId/layers/${layer.id}"
+        val updates = mutableMapOf<String, Any?>()
+        val resolvedBlob = resolveBlobForWrite(layer, blobUrl)
+
+        fun put(pathSuffix: String, value: Any?) {
+            updates["$layerBase/$pathSuffix"] = value
         }
-        if (layer.type == LayerType.IMAGE || layer.type == LayerType.AI_GENERATED) {
-            if (resolvedBlob.isBlank()) {
-                Log.w(
-                    LayerImageDebug.TAG,
-                    "buildLayerDataMap: image layer ${layer.id} has no blobUrl or sourceBitmapPath to persist"
-                )
+
+        when (opType) {
+            "layer_add" -> {
+                put("order", layer.zIndex)
+                put("type", layer.type.name.lowercase())
+                put("opacity", layer.opacity.toDouble())
+                put("blendMode", layer.blendMode.name.lowercase())
+                put("name", layer.name)
+                put("updatedAt", layer.updatedAt)
+                put("transform/x", layer.transform.translateX.toDouble())
+                put("transform/y", layer.transform.translateY.toDouble())
+                put("transform/scaleX", layer.transform.scaleX.toDouble())
+                put("transform/scaleY", layer.transform.scaleY.toDouble())
+                put("solidColor", layer.solidColor ?: 0)
+
+                if (!resolvedBlob.isNullOrBlank()) {
+                    put("blobUrl", resolvedBlob)
+                }
+
+                if (layer.textContent != null) {
+                    putTextContent(updates, layerBase, layer.textContent)
+                }
+
+                putEffects(updates, layerBase, layer.effectChain)
+            }
+            "transform" -> {
+                put("transform/x", layer.transform.translateX.toDouble())
+                put("transform/y", layer.transform.translateY.toDouble())
+                put("transform/scaleX", layer.transform.scaleX.toDouble())
+                put("transform/scaleY", layer.transform.scaleY.toDouble())
+                put("updatedAt", layer.updatedAt)
+                if (layer.type == LayerType.TEXT && layer.textContent != null) {
+                    put("textContent/fontSize", layer.textContent.fontSize.toDouble())
+                }
+            }
+            "opacity" -> {
+                put("opacity", layer.opacity.toDouble())
+                put("updatedAt", layer.updatedAt)
+            }
+            "blend_mode" -> {
+                put("blendMode", layer.blendMode.name.lowercase())
+                put("updatedAt", layer.updatedAt)
+            }
+            "effect_add", "effect_update", "effect_remove", "effect_toggle" -> {
+                putEffects(updates, layerBase, layer.effectChain)
+                put("updatedAt", layer.updatedAt)
+            }
+            else -> {
+                put("updatedAt", layer.updatedAt)
             }
         }
-        val layerData = mutableMapOf<String, Any>(
-            "order" to layer.zIndex,
-            "type" to layer.type.name.lowercase(),
-            "blobUrl" to resolvedBlob,
-            "opacity" to layer.opacity.toDouble(),
-            "blendMode" to layer.blendMode.name.lowercase(),
-            "name" to layer.name,
-            "ownerId" to layer.ownerId,
-            "solidColor" to (layer.solidColor ?: 0),
-            "transform" to mapOf(
-                "x" to layer.transform.translateX.toDouble(),
-                "y" to layer.transform.translateY.toDouble(),
-                "scaleX" to layer.transform.scaleX.toDouble(),
-                "scaleY" to layer.transform.scaleY.toDouble()
-            ),
-            "updatedAt" to layer.updatedAt
-        )
+        return updates
+    }
 
-        layer.textContent?.let { tc ->
-            layerData["textContent"] = mapOf(
-                "text" to tc.text,
-                "fontFamily" to tc.fontFamily,
-                "fontSize" to tc.fontSize.toDouble(),
-                "color" to tc.color,
-                "isBold" to tc.isBold,
-                "isItalic" to tc.isItalic,
-                "isUnderline" to tc.isUnderline
+    private fun resolveBlobForWrite(layer: Layer, blobUrl: String?): String? {
+        val resolved = when {
+            !blobUrl.isNullOrBlank() -> blobUrl
+            !layer.sourceBitmapPath.isNullOrBlank() -> layer.sourceBitmapPath
+            else -> null
+        }
+        if ((layer.type == LayerType.IMAGE || layer.type == LayerType.AI_GENERATED) && resolved.isNullOrBlank()) {
+            Log.w(
+                LayerImageDebug.TAG,
+                "buildLayerDataMap: image layer ${layer.id} has no blobUrl/sourceBitmapPath for write"
             )
         }
+        return resolved
+    }
 
-        if (layer.effectChain.isNotEmpty()) {
-            layerData["effects"] = layer.effectChain.associate { effect ->
-                effect.id to effectToMap(effect)
-            }
+    private fun putTextContent(
+        updates: MutableMap<String, Any?>,
+        layerBase: String,
+        textContent: TextLayerContent
+    ) {
+        updates["$layerBase/textContent/text"] = textContent.text
+        updates["$layerBase/textContent/fontFamily"] = textContent.fontFamily
+        updates["$layerBase/textContent/fontSize"] = textContent.fontSize.toDouble()
+        updates["$layerBase/textContent/color"] = textContent.color
+        updates["$layerBase/textContent/isBold"] = textContent.isBold
+        updates["$layerBase/textContent/isItalic"] = textContent.isItalic
+        updates["$layerBase/textContent/isUnderline"] = textContent.isUnderline
+    }
+
+    private fun putEffects(updates: MutableMap<String, Any?>, layerBase: String, effects: List<Effect>) {
+        val effectsPath = "$layerBase/effects"
+        updates[effectsPath] = if (effects.isEmpty()) {
+            null
+        } else {
+            effects.associate { effect -> effect.id to effectToMap(effect) }
         }
-
-        return mapOf("canvases/$canvasId/layers/${layer.id}" to layerData)
     }
 
     override suspend fun fetchLayers(canvasId: String): List<Layer> {
@@ -190,7 +240,6 @@ class RealtimeDBRepositoryImpl @Inject constructor() : RealtimeDBRepository {
             Layer(
                 id = layerId,
                 canvasId = canvasId,
-                ownerId = child.child("ownerId").getValue(String::class.java) ?: "",
                 name = child.child("name").getValue(String::class.java) ?: "Layer",
                 type = layerType,
                 sourceBitmapPath = blobFromDb,

@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -36,8 +38,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -46,6 +50,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -131,13 +136,28 @@ fun HomeScreen(
                     onLogoutClick = { showLogoutConfirm = true }
                 )
             } else {
+                val isDark = isSystemInDarkTheme()
                 TopAppBar(
                     title = {
                         Text(
                             text = "CanvasX",
-                            style = MaterialTheme.typography.headlineMedium
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = if (isDark)
+                                MaterialTheme.colorScheme.onSurface
+                            else
+                                MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = if (isDark)
+                            MaterialTheme.colorScheme.surface
+                        else
+                            MaterialTheme.colorScheme.primaryContainer,
+                        actionIconContentColor = if (isDark)
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        else
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                    ),
                     actions = {
                         HomeOverflowMenu(
                             expanded = overflowMenuExpanded,
@@ -148,7 +168,10 @@ fun HomeScreen(
                         IconButton(
                             onClick = { viewModel.handleIntent(HomeIntent.SetSearchActive(true)) }
                         ) {
-                            Icon(Icons.Filled.Search, contentDescription = "Search")
+                            Icon(
+                                Icons.Filled.Search,
+                                contentDescription = "Search"
+                            )
                         }
                     }
                 )
@@ -178,6 +201,8 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            HomeBackgroundWatermark()
+
             when {
                 uiState.isLoading -> {
                     CircularProgressIndicator(
@@ -311,6 +336,31 @@ fun HomeScreen(
     }
 }
 
+@Composable
+private fun HomeBackgroundWatermark() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Brush,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+            modifier = Modifier.size(70.dp)
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "Create. Edit. Collaborate.",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SearchBar(
@@ -323,6 +373,7 @@ private fun SearchBar(
     onLogoutClick: () -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
+    val isDark = isSystemInDarkTheme()
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -339,13 +390,43 @@ private fun SearchBar(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
                     focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
+                    unfocusedIndicatorColor = Color.Transparent,
+                    focusedTextColor = if (isDark)
+                        MaterialTheme.colorScheme.onSurface
+                    else
+                        MaterialTheme.colorScheme.onPrimaryContainer,
+                    unfocusedTextColor = if (isDark)
+                        MaterialTheme.colorScheme.onSurface
+                    else
+                        MaterialTheme.colorScheme.onPrimaryContainer,
+                    focusedPlaceholderColor = if (isDark)
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    else
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                    unfocusedPlaceholderColor = if (isDark)
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    else
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester)
             )
         },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = if (isDark)
+                MaterialTheme.colorScheme.surface
+            else
+                MaterialTheme.colorScheme.primaryContainer,
+            navigationIconContentColor = if (isDark)
+                MaterialTheme.colorScheme.onSurfaceVariant
+            else
+                MaterialTheme.colorScheme.onPrimaryContainer,
+            actionIconContentColor = if (isDark)
+                MaterialTheme.colorScheme.onSurfaceVariant
+            else
+                MaterialTheme.colorScheme.onPrimaryContainer
+        ),
         navigationIcon = {
             IconButton(onClick = onClose) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Close search")
@@ -458,34 +539,55 @@ private fun EmptyState(onCreateCanvas: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = Icons.Filled.Add,
-            contentDescription = null,
-            modifier = Modifier.size(120.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-        )
+        Surface(
+            shape = RoundedCornerShape(32.dp),
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+            modifier = Modifier.size(100.dp)
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Brush,
+                    contentDescription = null,
+                    modifier = Modifier.size(52.dp),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                )
+            }
+        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "No canvases yet",
-            style = MaterialTheme.typography.titleMedium,
-            textAlign = TextAlign.Center
+            text = "Your canvas awaits",
+            style = MaterialTheme.typography.titleLarge,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurface
         )
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Tap + to create your first",
+            text = "Create your first canvas to get started",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
-        FilledTonalButton(onClick = onCreateCanvas) {
-            Text("Create Canvas")
+        FilledTonalButton(
+            onClick = onCreateCanvas,
+            modifier = Modifier.height(48.dp)
+        ) {
+            Icon(
+                Icons.Filled.Add,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("New Canvas")
         }
     }
 }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.Card
@@ -23,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -45,8 +47,11 @@ fun CanvasCard(
                 onClick = onClick,
                 onLongClick = onLongClick
             ),
-        shape = MaterialTheme.shapes.medium,
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Thumbnail or placeholder
@@ -61,21 +66,36 @@ fun CanvasCard(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            )
+                        )
                 )
             }
 
             // Pin indicator
             if (canvas.isPinned) {
-                Icon(
-                    imageVector = Icons.Filled.PushPin,
-                    contentDescription = "Pinned",
+                Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(8.dp)
-                        .size(16.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                        .background(
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                            shape = RoundedCornerShape(6.dp)
+                        )
+                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.PushPin,
+                        contentDescription = "Pinned",
+                        modifier = Modifier.size(12.dp),
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
             }
 
             // Bottom scrim with name + timestamp
@@ -87,16 +107,16 @@ fun CanvasCard(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.6f)
+                                Color.Black.copy(alpha = 0.72f)
                             )
                         )
                     )
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
             ) {
                 Column {
                     Text(
                         text = canvas.name,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                         color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -104,7 +124,7 @@ fun CanvasCard(
                     Text(
                         text = canvas.updatedAt.toRelativeTime(),
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.7f)
+                        color = Color.White.copy(alpha = 0.65f)
                     )
                 }
             }
@@ -137,4 +157,3 @@ private fun Long.toRelativeTime(): String {
         }
     }
 }
-

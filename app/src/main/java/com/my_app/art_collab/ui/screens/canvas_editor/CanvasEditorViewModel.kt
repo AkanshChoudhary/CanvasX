@@ -2,12 +2,13 @@ package com.my_app.art_collab.ui.screens.canvas_editor
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.net.Uri
 import android.util.Log
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.my_app.art_collab.debug.LayerImageDebug
-import com.my_app.art_collab.data.image.GalleryExporter
 import com.my_app.art_collab.domain.model.BlendMode
 import com.my_app.art_collab.domain.model.Effect
 import com.my_app.art_collab.domain.model.Layer
@@ -49,6 +50,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.yield
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
 
@@ -72,6 +76,10 @@ class CanvasEditorViewModel @Inject constructor(
     private val fetchLayersUseCase: FetchLayersUseCase,
     private val persistCanvasThumbnailUseCase: PersistCanvasThumbnailUseCase,
 ) : ViewModel() {
+    data class ShareImageRequest(
+        val uri: Uri,
+        val displayName: String
+    )
 
     private val _layers = MutableStateFlow<List<Layer>>(emptyList())
     val layers: StateFlow<List<Layer>> = _layers.asStateFlow()
@@ -100,6 +108,8 @@ class CanvasEditorViewModel @Inject constructor(
 
     private val _exportMessages = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val exportMessages: SharedFlow<String> = _exportMessages.asSharedFlow()
+    private val _shareImageRequests = MutableSharedFlow<ShareImageRequest>(extraBufferCapacity = 1)
+    val shareImageRequests: SharedFlow<ShareImageRequest> = _shareImageRequests.asSharedFlow()
     private val _layerBlobUrls = mutableMapOf<String, String>()
 
     private val kickFromCanvasPending = AtomicBoolean(false)
@@ -605,7 +615,6 @@ class CanvasEditorViewModel @Inject constructor(
                     val newLayer = Layer(
                         id = op.layerId,
                         canvasId = "",
-                        ownerId = op.userId,
                         name = "Layer ${_layers.value.size + 1}",
                         type = layerType,
                         sourceBitmapPath = blobUrl,
@@ -698,7 +707,6 @@ class CanvasEditorViewModel @Inject constructor(
         val newLayer = Layer(
             id = UUID.randomUUID().toString(),
             canvasId = canvasId,
-            ownerId = "",
             name = if (isAi) "AI ${current.size + 1}" else "Image ${current.size + 1}",
             type = if (isAi) LayerType.AI_GENERATED else LayerType.IMAGE,
             zIndex = (current.maxOfOrNull { it.zIndex } ?: -1) + 1,
@@ -733,7 +741,7 @@ class CanvasEditorViewModel @Inject constructor(
                         putAll(transformFieldsForLayerAdd(newLayer.transform))
                     }
                 )
-                val snapshotUpdate = pushLayerOpUseCase.buildLayerDataMap(canvasId, newLayer, blobUrl)
+                val snapshotUpdate = pushLayerOpUseCase.buildLayerDataMap(canvasId, newLayer, blobUrl, op.type)
                 pushLayerOpUseCase(canvasId, op, snapshotUpdate)
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -746,7 +754,6 @@ class CanvasEditorViewModel @Inject constructor(
         val newLayer = Layer(
             id = UUID.randomUUID().toString(),
             canvasId = canvasId,
-            ownerId = "",
             name = "Text ${current.size + 1}",
             type = LayerType.TEXT,
             zIndex = (current.maxOfOrNull { it.zIndex } ?: -1) + 1,
@@ -780,7 +787,7 @@ class CanvasEditorViewModel @Inject constructor(
                     "isUnderline" to isUnderline
                 )
             )
-            val snapshotUpdate = pushLayerOpUseCase.buildLayerDataMap(canvasId, newLayer, null)
+            val snapshotUpdate = pushLayerOpUseCase.buildLayerDataMap(canvasId, newLayer, null, op.type)
             pushLayerOpUseCase(canvasId, op, snapshotUpdate)
         }
     }
@@ -790,7 +797,6 @@ class CanvasEditorViewModel @Inject constructor(
         val newLayer = Layer(
             id = UUID.randomUUID().toString(),
             canvasId = canvasId,
-            ownerId = "",
             name = "Color Fill ${current.size + 1}",
             type = LayerType.SOLID_COLOR,
             zIndex = (current.maxOfOrNull { it.zIndex } ?: -1) + 1,
@@ -811,7 +817,7 @@ class CanvasEditorViewModel @Inject constructor(
                     "color" to color
                 )
             )
-            val snapshotUpdate = pushLayerOpUseCase.buildLayerDataMap(canvasId, newLayer, null)
+            val snapshotUpdate = pushLayerOpUseCase.buildLayerDataMap(canvasId, newLayer, null, op.type)
             pushLayerOpUseCase(canvasId, op, snapshotUpdate)
         }
     }
@@ -929,7 +935,7 @@ class CanvasEditorViewModel @Inject constructor(
             )
 
             val snapShotUpdate = pushLayerOpUseCase.buildLayerDataMap(
-                canvasId, layer, _layerBlobUrls[layerId]
+                canvasId, layer, _layerBlobUrls[layerId], op.type
             )
             transformThrottle.onOp(op,snapShotUpdate) {
                 throttledOp, throttledSnapshot ->
@@ -953,7 +959,7 @@ class CanvasEditorViewModel @Inject constructor(
             payload = buildTransformPayload(layer, layer.transform)
         )
         val snapshotUpdate = pushLayerOpUseCase.buildLayerDataMap(
-            canvasId, layer, _layerBlobUrls[layerId]
+            canvasId, layer, _layerBlobUrls[layerId], op.type
         )
         transformThrottle.onFinalOp(op, snapshotUpdate) { finalOp, finalSnapshot ->
             viewModelScope.launch {
@@ -987,7 +993,7 @@ class CanvasEditorViewModel @Inject constructor(
                     payload = mapOf("value" to opacity.toDouble())
                 )
                 val snapshotUpdate = pushLayerOpUseCase.buildLayerDataMap(
-                    canvasId, updatedLayer!!, _layerBlobUrls[layerId]
+                    canvasId, updatedLayer!!, _layerBlobUrls[layerId], op.type
                 )
                 pushLayerOpUseCase(canvasId, op, snapshotUpdate)
             }
@@ -1012,7 +1018,7 @@ class CanvasEditorViewModel @Inject constructor(
                 payload = mapOf("mode" to blendMode.name.lowercase())
             )
             val snapshotUpdate = pushLayerOpUseCase.buildLayerDataMap(
-                canvasId, layer, _layerBlobUrls[layerId]
+                canvasId, layer, _layerBlobUrls[layerId], op.type
             )
             pushLayerOpUseCase(canvasId, op, snapshotUpdate)
         }
@@ -1042,7 +1048,7 @@ class CanvasEditorViewModel @Inject constructor(
                     payload = effect.toPayloadMap()
                 )
                 val snapshotUpdate = pushLayerOpUseCase.buildLayerDataMap(
-                    canvasId, layer, _layerBlobUrls[layerId]
+                    canvasId, layer, _layerBlobUrls[layerId], op.type
                 )
                 pushLayerOpUseCase(canvasId, op, snapshotUpdate)
             }
@@ -1070,7 +1076,7 @@ class CanvasEditorViewModel @Inject constructor(
                 payload = updatedEffect.toPayloadMap()
             )
             val snapshotUpdate = pushLayerOpUseCase.buildLayerDataMap(
-                canvasId, layer, _layerBlobUrls[layerId]
+                canvasId, layer, _layerBlobUrls[layerId], op.type
             )
             effectThrottle.onOp(op, snapshotUpdate) { throttledOp, throttledSnapshot ->
                 viewModelScope.launch {
@@ -1100,7 +1106,7 @@ class CanvasEditorViewModel @Inject constructor(
                     payload = mapOf("effectId" to effectId)
                 )
                 val snapshotUpdate = pushLayerOpUseCase.buildLayerDataMap(
-                    canvasId, layer, _layerBlobUrls[layerId]
+                    canvasId, layer, _layerBlobUrls[layerId], op.type
                 )
                 pushLayerOpUseCase(canvasId, op, snapshotUpdate)
             }
@@ -1131,7 +1137,7 @@ class CanvasEditorViewModel @Inject constructor(
                     payload = mapOf("effectId" to effectId)
                 )
                 val snapshotUpdate = pushLayerOpUseCase.buildLayerDataMap(
-                    canvasId, layer, _layerBlobUrls[layerId]
+                    canvasId, layer, _layerBlobUrls[layerId], op.type
                 )
                 pushLayerOpUseCase(canvasId, op, snapshotUpdate)
             }
@@ -1164,20 +1170,59 @@ class CanvasEditorViewModel @Inject constructor(
         private const val HYDRATION_TIMEOUT_MS = 60_000L
         private const val THUMBNAIL_IDLE_DEBOUNCE_MS = 1500L
     }
-    fun exportCompositeToGallery(canvasDisplayName: String){
+    fun shareComposite(canvasDisplayName: String) {
         viewModelScope.launch {
             val bitmap = compositedBitmap.value
-            if(bitmap==null){
-                _exportMessages.emit("Nothing to export yet")
+            if (bitmap == null) {
+                _exportMessages.emit("Nothing to share yet")
                 return@launch
             }
-            val result = withContext(Dispatchers.IO){
-                GalleryExporter.savePngLossless(appContext,bitmap,canvasDisplayName)
+            val result = withContext(Dispatchers.IO) {
+                writeShareImage(bitmap, canvasDisplayName)
             }
             result.fold(
-                onSuccess = {_exportMessages.emit("Saved to photos")},
-                onFailure = {e -> _exportMessages.emit("Export failed: ${e.message}") }
+                onSuccess = { req -> _shareImageRequests.tryEmit(req) },
+                onFailure = { e -> _exportMessages.emit("Share failed: ${e.message}") }
             )
+        }
+    }
+
+    private fun writeShareImage(bitmap: Bitmap, canvasDisplayName: String): Result<ShareImageRequest> {
+        if (bitmap.isRecycled) {
+            return Result.failure(IllegalStateException("Bitmap was recycled"))
+        }
+
+        val toWrite = if (bitmap.config == Bitmap.Config.HARDWARE) {
+            bitmap.copy(Bitmap.Config.ARGB_8888, false)
+                ?: return Result.failure(IllegalStateException("Could not copy hardware bitmap"))
+        } else bitmap
+
+        return try {
+            val safeBase = canvasDisplayName
+                .replace(Regex("""[<>:"/\\|?*]"""), "_")
+                .trim()
+                .ifBlank { "Canvas" }
+            val stamp = SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.US).format(Date())
+            val fileName = "${safeBase}_${stamp}.png"
+            val shareDir = File(appContext.cacheDir, "shared_images").apply { mkdirs() }
+            val outFile = File(shareDir, fileName)
+            outFile.outputStream().use { out ->
+                if (!toWrite.compress(Bitmap.CompressFormat.PNG, 100, out)) {
+                    return Result.failure(IllegalStateException("Could not encode PNG"))
+                }
+            }
+            val uri = FileProvider.getUriForFile(
+                appContext,
+                "${appContext.packageName}.fileprovider",
+                outFile
+            )
+            Result.success(ShareImageRequest(uri = uri, displayName = fileName))
+        } catch (e: Exception) {
+            Result.failure(e)
+        } finally {
+            if (toWrite !== bitmap) {
+                toWrite.recycle()
+            }
         }
     }
 }

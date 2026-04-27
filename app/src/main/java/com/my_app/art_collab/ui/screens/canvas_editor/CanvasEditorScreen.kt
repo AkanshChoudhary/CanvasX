@@ -1,5 +1,7 @@
 package com.my_app.art_collab.ui.screens.canvas_editor
 
+import android.content.ClipData
+import android.content.Intent
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,12 +18,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Brush
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.LensBlur
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,7 +35,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -103,6 +107,20 @@ fun CanvasEditorScreen(
             snackbarHostState.showSnackbar(message)
         }
     }
+    val context = LocalContext.current
+    LaunchedEffect(viewModel, context) {
+        viewModel.shareImageRequests.collectLatest { req ->
+            val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "image/png"
+                putExtra(Intent.EXTRA_STREAM, req.uri)
+                putExtra(Intent.EXTRA_SUBJECT, req.displayName)
+                putExtra(Intent.EXTRA_TEXT, req.displayName)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                clipData = ClipData.newUri(context.contentResolver, req.displayName, req.uri)
+            }
+            context.startActivity(Intent.createChooser(sendIntent, "Share image"))
+        }
+    }
 
     LaunchedEffect(canvasId, viewModel) {
         viewModel.exitCanvasAfterKick.collect {
@@ -169,11 +187,31 @@ fun CanvasEditorScreen(
         }
     }
 
+    val isDark = isSystemInDarkTheme()
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text(name) },
+                title = {
+                    Text(
+                        text = name,
+                        color = if (isDark)
+                            MaterialTheme.colorScheme.onSurface
+                        else
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = if (isDark)
+                        MaterialTheme.colorScheme.surface
+                    else
+                        MaterialTheme.colorScheme.primaryContainer,
+                    navigationIconContentColor = if (isDark)
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    else
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                ),
                 navigationIcon = {
                     IconButton(
                         onClick = {
@@ -199,7 +237,7 @@ fun CanvasEditorScreen(
                 onEffectsClick = { showEffectsSheet = true },
                 onBlendClick = { showBlendSheet = true },
                 onAddTextLayerClick = {showTextDialog = true},
-                onExportClick = {viewModel.exportCompositeToGallery(name)}
+                onShareClick = { viewModel.shareComposite(name) }
             )
         }
     ) { paddingValues ->
@@ -240,8 +278,6 @@ fun CanvasEditorScreen(
         )
     }
 
-    val context = LocalContext.current
-    
     if (showAddLayerSheet) {
         AddLayerSheet(
             onDismiss = { showAddLayerSheet = false },
@@ -425,19 +461,20 @@ private fun EditorToolbar(
     onEffectsClick: () -> Unit,
     onBlendClick: () -> Unit,
     onAddTextLayerClick: () -> Unit,
-    onExportClick: ()->Unit
+    onShareClick: () -> Unit
 ) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding(),
-        tonalElevation = 8.dp,
-        color = MaterialTheme.colorScheme.surfaceContainer
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shadowElevation = 0.dp,
+        tonalElevation = 2.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
+                .padding(horizontal = 4.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             ToolbarButton(
@@ -472,9 +509,9 @@ private fun EditorToolbar(
                 onClick = onAddClick
             )
             ToolbarButton(
-                icon = Icons.Filled.Download,
-                label = "Export",
-                onClick = onExportClick
+                icon = Icons.Filled.Share,
+                label = "Share",
+                onClick = onShareClick
             )
         }
     }
@@ -488,31 +525,37 @@ private fun ToolbarButton(
     isActive: Boolean = false,
     enabled: Boolean = true
 ) {
+    val activeBackground = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.75f)
+    val iconTint = when {
+        !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+        isActive  -> MaterialTheme.colorScheme.primary
+        else      -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val labelColor = when {
+        !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+        isActive  -> MaterialTheme.colorScheme.primary
+        else      -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (isActive) activeBackground else Color.Transparent)
             .clickable(enabled = enabled) { onClick() }
-            .padding(8.dp)
+            .padding(horizontal = 10.dp, vertical = 8.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = when {
-                !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                isActive -> MaterialTheme.colorScheme.primary
-                else -> MaterialTheme.colorScheme.onSurface
-            }
+            tint = iconTint,
+            modifier = Modifier.size(22.dp)
         )
         Text(
-            label,
+            text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = when {
-                !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                isActive -> MaterialTheme.colorScheme.primary
-                else -> MaterialTheme.colorScheme.onSurfaceVariant
-            },
-            modifier = Modifier.padding(top = 4.dp)
+            color = labelColor,
+            modifier = Modifier.padding(top = 3.dp)
         )
     }
 }

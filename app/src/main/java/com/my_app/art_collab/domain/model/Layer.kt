@@ -6,7 +6,6 @@ import kotlinx.serialization.Serializable
 data class Layer(
     val id: String,
     val canvasId: String,
-    val ownerId: String,
     val name: String,
     val type: LayerType,
     val sourceBitmapPath: String? = null,

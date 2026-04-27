@@ -9,10 +9,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetState
@@ -23,9 +27,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.MaterialTheme
 
 data class SizePreset(
     val label: String,
@@ -61,26 +65,35 @@ fun NewCanvasBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp)
+                .padding(bottom = 36.dp)
         ) {
             Text(
                 text = "New Canvas",
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Choose a size and give it a name",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Size presets
             Text(
-                text = "Size",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = "SIZE",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                letterSpacing = androidx.compose.ui.unit.TextUnit(1.5f, androidx.compose.ui.unit.TextUnitType.Sp)
             )
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -94,9 +107,15 @@ fun NewCanvasBottomSheet(
                         label = {
                             Text(
                                 if (preset.label == "Custom") preset.label
-                                else "${preset.label} (${preset.width}×${preset.height})"
+                                else "${preset.label}\n${preset.width}×${preset.height}",
+                                style = MaterialTheme.typography.labelSmall
                             )
-                        }
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ),
+                        shape = RoundedCornerShape(10.dp)
                     )
                 }
             }
@@ -115,6 +134,7 @@ fun NewCanvasBottomSheet(
                         suffix = { Text("px") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
@@ -124,6 +144,7 @@ fun NewCanvasBottomSheet(
                         suffix = { Text("px") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -131,19 +152,25 @@ fun NewCanvasBottomSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Canvas name
+            Text(
+                text = "NAME",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                letterSpacing = androidx.compose.ui.unit.TextUnit(1.5f, androidx.compose.ui.unit.TextUnitType.Sp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
             OutlinedTextField(
                 value = canvasName,
                 onValueChange = { canvasName = it },
-                label = { Text("Canvas name") },
                 placeholder = { Text("Untitled Canvas") },
                 singleLine = true,
+                shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Create button
             Button(
                 onClick = {
                     onCreate(
@@ -153,12 +180,19 @@ fun NewCanvasBottomSheet(
                     )
                 },
                 enabled = isCreateEnabled,
-                modifier = Modifier.fillMaxWidth().height(52.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
             ) {
-                Text("Create Canvas")
+                Text(
+                    "Create Canvas",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                )
             }
         }
     }
 }
-
-

@@ -19,12 +19,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -37,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -59,20 +62,56 @@ fun LayerPanel(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        contentWindowInsets = { WindowInsets(0) }
+        contentWindowInsets = { WindowInsets(0) },
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Layers", style = MaterialTheme.typography.titleMedium)
-            IconButton(onClick = onAddLayer) {
-                Icon(imageVector = Icons.Filled.Add, contentDescription = "Add Layer")
+            Column {
+                Text(
+                    "Layers",
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                )
+                Text(
+                    "${layers.size} layer${if (layers.size != 1) "s" else ""}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Surface(
+                onClick = onAddLayer,
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = "Add Layer",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        "Add",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
         }
+
+        HorizontalDivider(
+            thickness = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
 
         LazyColumn(
             modifier = Modifier
@@ -88,11 +127,6 @@ fun LayerPanel(
                     isSelected = layer.id == selectedLayerId,
                     onClick = { onLayerClick(layer) },
                     onDelete = { onDeleteLayer(layer) }
-                )
-
-                HorizontalDivider(
-                    thickness = 0.5.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant
                 )
             }
         }
@@ -127,7 +161,10 @@ fun LayerItem(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(if (isSwiping) MaterialTheme.colorScheme.errorContainer else Color.Transparent),
+                    .background(
+                        if (isSwiping) MaterialTheme.colorScheme.errorContainer
+                        else Color.Transparent
+                    ),
                 contentAlignment = Alignment.CenterEnd
             ) {
                 if (isSwiping) {
@@ -135,7 +172,7 @@ fun LayerItem(
                         imageVector = Icons.Filled.Delete,
                         contentDescription = "Delete Layer",
                         tint = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(end = 16.dp)
+                        modifier = Modifier.padding(end = 20.dp)
                     )
                 }
             }
@@ -145,53 +182,80 @@ fun LayerItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    if (isSelected) MaterialTheme.colorScheme.secondaryContainer
+                    if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                     else MaterialTheme.colorScheme.surface
                 )
                 .clickable(onClick = onClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 20.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Layer thumbnail
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(4.dp))
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(
-                        color = if(layer.type == LayerType.SOLID_COLOR)
-                            Color(layer.solidColor!!) else MaterialTheme.colorScheme.onSurfaceVariant
-
+                        color = if (layer.type == LayerType.SOLID_COLOR)
+                            Color(layer.solidColor!!)
+                        else MaterialTheme.colorScheme.surfaceVariant
                     )
             ) {
-                if(layer.type != LayerType.SOLID_COLOR) {
-                    layer.sourceBitmapPath?.let { path ->
-                        AsyncImage(
-                            model = path,
+                when (layer.type) {
+                    LayerType.SOLID_COLOR -> Unit
+                    LayerType.TEXT -> {
+                        Icon(
+                            imageVector = Icons.Filled.TextFields,
                             contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(22.dp)
                         )
+                    }
+                    else -> {
+                        layer.sourceBitmapPath?.let { path ->
+                            AsyncImage(
+                                model = path,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = layer.name,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface
                 )
-
                 Text(
                     text = layer.type.displayName(),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+            }
         }
+
+        HorizontalDivider(
+            thickness = 0.5.dp,
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
     }
 }
