@@ -15,6 +15,8 @@ data class HomeUiState(
     val renameDialogCanvas: Canvas? = null,
     val deleteDialogCanvas: Canvas? = null,
     val newCanvasId: String? = null,
-    val joinedCanvasId: String? = null
+    val joinedCanvasId: String? = null,
+    val isDeleteAccountDialogVisible: Boolean = false,
+    val isDeletingAccount: Boolean = false
 )
 

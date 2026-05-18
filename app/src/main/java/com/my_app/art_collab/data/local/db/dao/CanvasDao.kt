@@ -36,5 +36,8 @@ interface CanvasDao {
 
     @Query("DELETE FROM canvases")
     suspend fun deleteAllCanvases()
+
+    @Query("DELETE FROM canvases WHERE id = :canvasId")
+    suspend fun deleteCanvasById(canvasId: String)
 }
 

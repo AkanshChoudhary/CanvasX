@@ -5,6 +5,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.firestore.FirebaseFirestore
 import com.my_app.art_collab.R
 import com.my_app.art_collab.domain.repository.AuthRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -13,6 +14,7 @@ import javax.inject.Inject
 
 class AuthRepositoryImpl @Inject constructor(
     private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore,
     @ApplicationContext private val appContext: Context,
 ) : AuthRepository {
 
@@ -30,6 +32,10 @@ class AuthRepositoryImpl @Inject constructor(
         return auth.currentUser != null
     }
 
+    override fun getCurrentUserId(): String? {
+        return auth.currentUser?.uid
+    }
+
     override suspend fun signOut() {
         auth.signOut()
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -37,5 +43,23 @@ class AuthRepositoryImpl @Inject constructor(
             .requestEmail()
             .build()
         GoogleSignIn.getClient(appContext, gso).signOut().await()
+    }
+
+    override suspend fun deleteUserDocument(userId: String) {
+        firestore.collection(COL_USERS).document(userId).delete().await()
+    }
+
+    override suspend fun deleteAccount() {
+        val user = auth.currentUser ?: throw IllegalStateException("No user signed in")
+        user.delete().await()
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(appContext.getString(R.string.default_web_client_id))
+            .requestEmail()
+            .build()
+        GoogleSignIn.getClient(appContext, gso).signOut().await()
+    }
+
+    private companion object {
+        const val COL_USERS = "users"
     }
 }

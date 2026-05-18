@@ -38,11 +38,12 @@ fun AppNavGraph(
         // ── Home ─────────────────────────────────────────────────────────────
         composable<Screen.Home> {
             HomeScreen(
-                onOpenNewCanvas = { canvasId, name, widthPx, heightPx ->
+                onOpenNewCanvas = { canvasId, name, ownerId, widthPx, heightPx ->
                     navController.navigate(
                         Screen.NewCanvas(
                             canvasId = canvasId,
                             name = name,
+                            ownerId = ownerId,
                             widthPx = widthPx,
                             heightPx = heightPx
                         )
@@ -62,6 +63,7 @@ fun AppNavGraph(
             CanvasEditorScreen(
                 canvasId = route.canvasId,
                 name = route.name,
+                ownerId = route.ownerId,
                 widthPx = route.widthPx,
                 heightPx = route.heightPx,
                 onNavigateBack = { navController.popBackStack() }

@@ -17,10 +17,7 @@ class DeleteCanvasUseCase @Inject constructor(
             storageRepository.deleteAllCanvasFiles(id)
         } catch (_: Exception) {
         }
-        try {
-            realtimeDBRepository.deleteCanvasSubtree(id)
-        } catch (_: Exception) {
-        }
+        realtimeDBRepository.deleteCanvasSubtree(id)
         canvasRepository.deleteCanvas(canvas)
     }
 }

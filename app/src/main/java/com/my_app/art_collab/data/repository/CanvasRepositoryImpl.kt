@@ -233,6 +233,54 @@ class CanvasRepositoryImpl @Inject constructor(
         canvasDao.upsertCanvas(canvas.toEntity())
     }
 
+    override suspend fun transferOwnershipAndLeave(
+        canvasId: String,
+        oldOwnerId: String,
+        newOwnerId: String
+    ) {
+        val snap = firestore.collection(COL_CANVASES).document(canvasId).get().await()
+        if (!snap.exists()) return
+
+        val members = membersFromCanvasDoc(snap).toMutableMap()
+        members.remove(oldOwnerId)
+        members[newOwnerId] = CanvasMember(CanvasMember.ROLE_OWNER, members[newOwnerId]?.joinedAt ?: System.currentTimeMillis())
+
+        val updatedAt = System.currentTimeMillis()
+
+        val batch = firestore.batch()
+        val canvasRef = firestore.collection(COL_CANVASES).document(canvasId)
+        batch.update(
+            canvasRef,
+            mapOf(
+                "ownerId" to newOwnerId,
+                "members" to membersToFirestoreMap(members),
+                "updatedAt" to updatedAt,
+                "collaboratorIds" to FieldValue.delete(),
+            )
+        )
+        batch.delete(libraryDoc(oldOwnerId, canvasId))
+        members.keys.forEach { uid ->
+            val canvas = Canvas(
+                id = canvasId,
+                ownerId = newOwnerId,
+                name = snap.getString("name") ?: "Untitled",
+                widthPx = snap.getLong("widthPx")?.toInt() ?: 1080,
+                heightPx = snap.getLong("heightPx")?.toInt() ?: 1920,
+                members = members,
+                shareCode = snap.getString("shareCode") ?: "",
+                createdAt = snap.getLong("createdAt") ?: 0,
+                updatedAt = updatedAt,
+            )
+            batch.set(
+                libraryDoc(uid, canvasId),
+                libraryDocData(canvas, roleForUser(uid, members), members),
+                SetOptions.merge()
+            )
+        }
+        batch.commit().await()
+        canvasDao.deleteCanvasById(canvasId)
+    }
+
     override suspend fun updateThumbnail(canvasId: String, absolutePath: String) {
         canvasDao.updateThumbnail(canvasId, absolutePath)
     }

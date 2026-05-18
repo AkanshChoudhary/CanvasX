@@ -26,5 +26,8 @@ sealed class HomeIntent {
     data object ConsumeJoinedCanvasId : HomeIntent()
     data object ClearError : HomeIntent()
     data object SignOut : HomeIntent()
+    data object ShowDeleteAccountDialog : HomeIntent()
+    data object DismissDeleteAccountDialog : HomeIntent()
+    data object DeleteAccount : HomeIntent()
 }
 

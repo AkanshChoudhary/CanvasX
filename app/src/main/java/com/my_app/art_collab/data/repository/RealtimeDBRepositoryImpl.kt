@@ -162,7 +162,19 @@ class RealtimeDBRepositoryImpl @Inject constructor() : RealtimeDBRepository {
     }
 
     override suspend fun deleteCanvasSubtree(canvasId: String) {
-        database.getReference("canvases/$canvasId").removeValue().await()
+        val ref = database.getReference("canvases/$canvasId")
+        ref.removeValue().await()
+        if (ref.get().await().exists()) {
+            throw IllegalStateException("Failed to delete realtime data for canvas $canvasId")
+        }
+    }
+
+    override suspend fun deleteCanvasOps(canvasId: String) {
+        val ref = database.getReference("canvases/$canvasId/ops")
+        ref.removeValue().await()
+        if (ref.get().await().exists()) {
+            throw IllegalStateException("Failed to delete realtime operation history for canvas $canvasId")
+        }
     }
 
     override fun observeOps(canvasId: String, since: Long): Flow<LayerOp> = callbackFlow {
@@ -183,6 +195,63 @@ class RealtimeDBRepositoryImpl @Inject constructor() : RealtimeDBRepository {
             }
         })
         awaitClose { ref.removeEventListener(listener) }
+    }
+
+    override suspend fun pruneOpsToLimit(canvasId: String, keepTarget: Int) {
+        if (keepTarget < 0) return
+        val opsRef = database.getReference("canvases/$canvasId/ops")
+        val allSnap = opsRef.get().await()
+        val total = allSnap.childrenCount.toInt()
+        if (total <= keepTarget) return
+
+        val deleteCount = total - keepTarget
+        val oldest = opsRef
+            .orderByChild("timestamp")
+            .limitToFirst(deleteCount)
+            .get()
+            .await()
+
+        if (!oldest.exists()) return
+        val updates = mutableMapOf<String, Any?>()
+        oldest.children.forEach { child ->
+            child.key?.let { key -> updates[key] = null }
+        }
+        if (updates.isNotEmpty()) {
+            opsRef.updateChildren(updates).await()
+            Log.d(
+                LayerImageDebug.TAG,
+                "pruneOpsToLimit: canvasId=$canvasId total=$total deleted=${updates.size} keep=$keepTarget"
+            )
+        }
+    }
+
+    override suspend fun isOwnerOnline(canvasId: String): Boolean {
+        return database.getReference("canvases/$canvasId/session/ownerOnline")
+            .get()
+            .await()
+            .getValue(Boolean::class.java) ?: false
+    }
+
+    override suspend fun updateSessionOnlineFlags(canvasId: String, isOwner: Boolean, online: Boolean) {
+        val updates = mutableMapOf<String, Any?>(
+            "canvases/$canvasId/session/lastUpdatedAt" to System.currentTimeMillis()
+        )
+        if (isOwner) {
+            updates["canvases/$canvasId/session/ownerOnline"] = online
+        } else {
+            updates["canvases/$canvasId/session/collaboratorOnline"] = online
+        }
+        database.reference.updateChildren(updates).await()
+    }
+
+    override suspend fun clearOpsIfNoOneOnline(canvasId: String) {
+        val sessionSnap = database.getReference("canvases/$canvasId/session").get().await()
+        val ownerOnline = sessionSnap.child("ownerOnline").getValue(Boolean::class.java) ?: false
+        val collaboratorOnline = sessionSnap.child("collaboratorOnline").getValue(Boolean::class.java) ?: false
+        if (!ownerOnline && !collaboratorOnline) {
+            database.getReference("canvases/$canvasId/ops").removeValue().await()
+            Log.d(LayerImageDebug.TAG, "clearOpsIfNoOneOnline: removed ops for canvasId=$canvasId")
+        }
     }
 
     @Suppress("UNCHECKED_CAST")

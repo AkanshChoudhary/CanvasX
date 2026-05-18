@@ -1,6 +1,8 @@
 package com.my_app.art_collab.ui.screens.auth
 
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -59,6 +61,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.my_app.art_collab.R
+import com.my_app.art_collab.ui.LegalDocActivity
 
 @Composable
 fun AuthScreen(
@@ -84,9 +87,7 @@ fun AuthScreen(
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            viewModel.handleGoogleSignInResult(result.data)
-        }
+        viewModel.handleGoogleSignInResult(result.data)
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -350,11 +351,10 @@ fun AuthScreen(
                 withStyle(
                     style = SpanStyle(
                         textDecoration = TextDecoration.Underline,
-                        color = if (isDark) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary
                     )
                 ) {
-                    pushStringAnnotation(tag = "TERMS", annotation = "https://example.com/terms")
+                    pushStringAnnotation(tag = "URL", annotation = "file:///android_asset/terms_of_service.html")
                     append("Terms")
                     pop()
                 }
@@ -362,11 +362,10 @@ fun AuthScreen(
                 withStyle(
                     style = SpanStyle(
                         textDecoration = TextDecoration.Underline,
-                        color = if (isDark) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary
                     )
                 ) {
-                    pushStringAnnotation(tag = "PRIVACY", annotation = "https://example.com/privacy")
+                    pushStringAnnotation(tag = "URL", annotation = "file:///android_asset/privacy_policy.html")
                     append("Privacy Policy")
                     pop()
                 }
@@ -380,8 +379,13 @@ fun AuthScreen(
                     textAlign = TextAlign.Center
                 ),
                 onClick = { offset ->
-                    annotatedString.getStringAnnotations(tag = "TERMS", start = offset, end = offset).firstOrNull()?.let {}
-                    annotatedString.getStringAnnotations(tag = "PRIVACY", start = offset, end = offset).firstOrNull()?.let {}
+                    annotatedString.getStringAnnotations(tag = "URL", start = offset, end = offset)
+                        .firstOrNull()?.let { annotation ->
+                            val intent = Intent(context, LegalDocActivity::class.java).apply {
+                                putExtra(LegalDocActivity.EXTRA_URL, annotation.item)
+                            }
+                            context.startActivity(intent)
+                        }
                 }
             )
 

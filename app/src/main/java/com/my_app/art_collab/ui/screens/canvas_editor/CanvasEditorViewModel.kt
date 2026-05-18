@@ -30,6 +30,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -122,6 +123,9 @@ class CanvasEditorViewModel @Inject constructor(
     private val effectThrottle = OpThrottle(intervalMs = 50L)
     private var opsListenerJob: Job? = null
     private var thumbnailIdleJob: Job? = null
+    private var opsMaintenanceJob: Job? = null
+    private var activeCanvasId: String? = null
+    private var activeIsOwner: Boolean = false
 
     private val thumbnailSaveMutex = Mutex()
     private var lastSavedCompositeGeneration: Long = -1L
@@ -211,17 +215,21 @@ class CanvasEditorViewModel @Inject constructor(
     // LOAD LAYERS FROM FIREBASE ON CANVAS OPEN
     // ══════════════════════════════════════════════════════════════════════════
 
-    fun loadCanvasLayers(canvasId: String) {
+    fun loadCanvasLayers(canvasId: String, ownerId: String) {
         opsListenerJob?.cancel()
         kickFromCanvasPending.set(false)
         _kickedFromCanvasOverlay.value = false
         val joinTime = System.currentTimeMillis()
         val currentUserId = firebaseAuth.currentUser?.uid ?: ""
+        activeCanvasId = canvasId
+        activeIsOwner = currentUserId.isNotBlank() && currentUserId == ownerId
 
         // Fetch baseline layer list first, then subscribe to ops. If both run in parallel,
         // a slow fetch can overwrite _layers after remote ops were already applied (dropping
         // collaborator-added solid/text/image layers until reload).
         viewModelScope.launch {
+            markSessionOnline(canvasId, online = true)
+            startOpsMaintenance(canvasId)
             canvasHydrationMutex.withLock {
                 lastSavedCompositeGeneration = -1L
                 _canvasInteractionBlocked.value = true
@@ -342,11 +350,68 @@ class CanvasEditorViewModel @Inject constructor(
     fun onLocalLifecycleStopThumbnail(canvasId: String) {
         viewModelScope.launch {
             persistThumbnailSnapshot(canvasId)
+            onCanvasBackground(canvasId)
         }
     }
 
     suspend fun awaitPersistThumbnailForLeave(canvasId: String) {
         persistThumbnailSnapshot(canvasId)
+        onCanvasBackground(canvasId)
+    }
+
+    fun onCanvasForeground(canvasId: String, ownerId: String) {
+        activeCanvasId = canvasId
+        val currentUserId = firebaseAuth.currentUser?.uid ?: ""
+        activeIsOwner = currentUserId.isNotBlank() && currentUserId == ownerId
+        viewModelScope.launch {
+            markSessionOnline(canvasId, online = true)
+            startOpsMaintenance(canvasId)
+        }
+    }
+
+    private suspend fun onCanvasBackground(canvasId: String) {
+        markSessionOnline(canvasId, online = false)
+        stopOpsMaintenance()
+        runCatching {
+            fetchLayersUseCase.clearOpsIfNoOneOnline(canvasId)
+        }.onFailure { e ->
+            Log.w(LayerImageDebug.TAG, "onCanvasBackground: clearOpsIfNoOneOnline failed", e)
+        }
+    }
+
+    private suspend fun markSessionOnline(canvasId: String, online: Boolean) {
+        runCatching {
+            fetchLayersUseCase.updateSessionOnlineFlags(canvasId, activeIsOwner, online)
+        }.onFailure { e ->
+            Log.w(LayerImageDebug.TAG, "markSessionOnline failed canvasId=$canvasId online=$online", e)
+        }
+    }
+
+    private fun startOpsMaintenance(canvasId: String) {
+        if (opsMaintenanceJob?.isActive == true && activeCanvasId == canvasId) return
+        opsMaintenanceJob?.cancel()
+        opsMaintenanceJob = viewModelScope.launch(Dispatchers.IO) {
+            while (isActive) {
+                delay(OPS_PRUNE_INTERVAL_MS)
+                runCatching {
+                    val canPrune = if (activeIsOwner) {
+                        true
+                    } else {
+                        !fetchLayersUseCase.isOwnerOnline(canvasId)
+                    }
+                    if (canPrune) {
+                        fetchLayersUseCase.pruneOpsToLimit(canvasId, OPS_KEEP_TARGET)
+                    }
+                }.onFailure { e ->
+                    Log.w(LayerImageDebug.TAG, "startOpsMaintenance: prune failed canvasId=$canvasId", e)
+                }
+            }
+        }
+    }
+
+    private fun stopOpsMaintenance() {
+        opsMaintenanceJob?.cancel()
+        opsMaintenanceJob = null
     }
 
     private suspend fun persistThumbnailSnapshot(canvasId: String) {
@@ -1163,12 +1228,15 @@ class CanvasEditorViewModel @Inject constructor(
         super.onCleared()
         thumbnailIdleJob?.cancel()
         opsListenerJob?.cancel()
+        stopOpsMaintenance()
         renderEngine.invalidateAll()
     }
 
     companion object {
         private const val HYDRATION_TIMEOUT_MS = 60_000L
         private const val THUMBNAIL_IDLE_DEBOUNCE_MS = 1500L
+        private const val OPS_PRUNE_INTERVAL_MS = 3 * 60 * 1000L
+        private const val OPS_KEEP_TARGET = 10
     }
     fun shareComposite(canvasDisplayName: String) {
         viewModelScope.launch {

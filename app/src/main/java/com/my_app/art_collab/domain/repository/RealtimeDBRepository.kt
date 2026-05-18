@@ -9,6 +9,12 @@ interface RealtimeDBRepository {
     fun buildLayerDataMap(canvasId: String, layer: Layer, blobUrl: String?, opType: String): Map<String, Any?>
     suspend fun fetchLayers(canvasId: String): List<Layer>
     fun observeOps(canvasId: String, since: Long): Flow<LayerOp>
+    suspend fun pruneOpsToLimit(canvasId: String, keepTarget: Int)
+    suspend fun isOwnerOnline(canvasId: String): Boolean
+    suspend fun updateSessionOnlineFlags(canvasId: String, isOwner: Boolean, online: Boolean)
+    suspend fun clearOpsIfNoOneOnline(canvasId: String)
+    /** Removes historical ops while preserving layers/session for a shared canvas. */
+    suspend fun deleteCanvasOps(canvasId: String)
     /** Removes `canvases/{canvasId}` (layers + ops + any other children). */
     suspend fun deleteCanvasSubtree(canvasId: String)
 }

@@ -30,6 +30,16 @@ class AuthViewModel @Inject constructor(
     fun handleGoogleSignInResult(data: Intent?) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
+            if (data == null) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = "Google Sign-In did not return a response. Try again."
+                    )
+                }
+                return@launch
+            }
+
             val task = GoogleSignIn.getSignedInAccountFromIntent(data)
             try {
                 val account = task.getResult(ApiException::class.java)
@@ -46,7 +56,12 @@ class AuthViewModel @Inject constructor(
                 }
 
             } catch (e: ApiException) {
-                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Sign-in failed") }
+                val message = when (e.statusCode) {
+                    10 -> "Google Sign-In is not configured for this app signature. Add this build's SHA-1/SHA-256 to Firebase and rebuild."
+                    12501 -> "Google Sign-In was canceled."
+                    else -> "Google Sign-In failed (${e.statusCode}): ${e.statusMessage ?: e.message ?: "Unknown error"}"
+                }
+                _uiState.update { it.copy(isLoading = false, error = message) }
             }
         }
     }

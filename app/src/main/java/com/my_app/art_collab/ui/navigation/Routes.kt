@@ -13,6 +13,7 @@ sealed interface Screen {
     data class NewCanvas(
         val canvasId: String,
         val name: String,
+        val ownerId: String,
         val widthPx: Int,   // Canvas logical pixel width  — e.g. 1080
         val heightPx: Int   // Canvas logical pixel height — e.g. 1920
     ) : Screen

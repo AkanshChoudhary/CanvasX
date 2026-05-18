@@ -14,6 +14,7 @@ interface CanvasRepository {
     suspend fun joinCanvasByCode(shareCode: String, userId: String): Canvas
 
     suspend fun removeCollaboratorFromCanvas(canvasId:String, userIdToRemove:String)
+    suspend fun transferOwnershipAndLeave(canvasId: String, oldOwnerId: String, newOwnerId: String)
     fun syncCanvasesFromRemote()
 
     suspend fun updateThumbnail(canvasId: String, absolutePath: String)

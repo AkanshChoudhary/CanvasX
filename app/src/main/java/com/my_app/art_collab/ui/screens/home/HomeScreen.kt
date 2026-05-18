@@ -82,12 +82,20 @@ import com.my_app.art_collab.domain.model.Canvas
 import com.my_app.art_collab.ui.screens.home.components.CanvasCard
 import com.my_app.art_collab.ui.screens.home.components.NewCanvasBottomSheet
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onOpenNewCanvas: (String, String, Int, Int) -> Unit = { _, _, _, _ -> },  // id, name, widthPx, heightPx
+    onOpenNewCanvas: (String, String, String, Int, Int) -> Unit = { _, _, _, _, _ -> }, // id, name, ownerId, widthPx, heightPx
     onLoggedOut: () -> Unit = {},
-    viewModel: HomeViewModel = hiltViewModel()
+) {
+    HomeScreenContent(onOpenNewCanvas, onLoggedOut, hiltViewModel())
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HomeScreenContent(
+    onOpenNewCanvas: (String, String, String, Int, Int) -> Unit,
+    onLoggedOut: () -> Unit,
+    viewModel: HomeViewModel,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val filteredCanvases by viewModel.filteredCanvases.collectAsStateWithLifecycle()
@@ -112,12 +120,18 @@ fun HomeScreen(
     LaunchedEffect(uiState.joinedCanvasId, uiState.canvases) {
         val canvasId = uiState.joinedCanvasId ?: return@LaunchedEffect
         val canvas = uiState.canvases.find { it.id == canvasId } ?: return@LaunchedEffect
-        onOpenNewCanvas(canvas.id, canvas.name, canvas.widthPx, canvas.heightPx)
+        onOpenNewCanvas(canvas.id, canvas.name, canvas.ownerId, canvas.widthPx, canvas.heightPx)
         viewModel.handleIntent(HomeIntent.ConsumeJoinedCanvasId)
     }
 
     LaunchedEffect(Unit) {
         viewModel.logoutCompleted.collect {
+            onLoggedOut()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.accountDeleted.collect {
             onLoggedOut()
         }
     }
@@ -133,7 +147,8 @@ fun HomeScreen(
                     overflowMenuExpanded = overflowMenuExpanded,
                     onOverflowMenuExpandedChange = { overflowMenuExpanded = it },
                     onAboutClick = { showAbout = true },
-                    onLogoutClick = { showLogoutConfirm = true }
+                    onLogoutClick = { showLogoutConfirm = true },
+                    onDeleteAccountClick = { viewModel.handleIntent(HomeIntent.ShowDeleteAccountDialog) }
                 )
             } else {
                 val isDark = isSystemInDarkTheme()
@@ -163,7 +178,8 @@ fun HomeScreen(
                             expanded = overflowMenuExpanded,
                             onExpandedChange = { overflowMenuExpanded = it },
                             onAboutClick = { showAbout = true },
-                            onLogoutClick = { showLogoutConfirm = true }
+                            onLogoutClick = { showLogoutConfirm = true },
+                            onDeleteAccountClick = { viewModel.handleIntent(HomeIntent.ShowDeleteAccountDialog) }
                         )
                         IconButton(
                             onClick = { viewModel.handleIntent(HomeIntent.SetSearchActive(true)) }
@@ -201,7 +217,8 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            HomeBackgroundWatermark()
+            if(!filteredCanvases.isEmpty())
+                HomeBackgroundWatermark()
 
             when {
                 uiState.isLoading -> {
@@ -242,7 +259,7 @@ fun HomeScreen(
                         canvases = filteredCanvases,
                         contextMenuCanvas = uiState.contextMenuCanvas,
                         onCanvasClick = { canvas ->
-                            onOpenNewCanvas(canvas.id, canvas.name, canvas.widthPx, canvas.heightPx)
+                            onOpenNewCanvas(canvas.id, canvas.name, canvas.ownerId, canvas.widthPx, canvas.heightPx)
                         },
                         onCanvasLongClick = { canvas ->
                             viewModel.handleIntent(HomeIntent.ShowContextMenu(canvas))
@@ -334,6 +351,14 @@ fun HomeScreen(
     if (showAbout) {
         AboutDialog(onDismiss = { showAbout = false })
     }
+
+    if (uiState.isDeleteAccountDialogVisible) {
+        DeleteAccountConfirmationDialog(
+            isDeleting = uiState.isDeletingAccount,
+            onConfirm = { viewModel.handleIntent(HomeIntent.DeleteAccount) },
+            onDismiss = { viewModel.handleIntent(HomeIntent.DismissDeleteAccountDialog) }
+        )
+    }
 }
 
 @Composable
@@ -371,6 +396,7 @@ private fun SearchBar(
     onOverflowMenuExpandedChange: (Boolean) -> Unit,
     onAboutClick: () -> Unit,
     onLogoutClick: () -> Unit,
+    onDeleteAccountClick: () -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
     val isDark = isSystemInDarkTheme()
@@ -437,7 +463,8 @@ private fun SearchBar(
                 expanded = overflowMenuExpanded,
                 onExpandedChange = onOverflowMenuExpandedChange,
                 onAboutClick = onAboutClick,
-                onLogoutClick = onLogoutClick
+                onLogoutClick = onLogoutClick,
+                onDeleteAccountClick = onDeleteAccountClick
             )
             if (query.isNotEmpty()) {
                 IconButton(onClick = { onQueryChange("") }) {
@@ -454,6 +481,7 @@ private fun HomeOverflowMenu(
     onExpandedChange: (Boolean) -> Unit,
     onAboutClick: () -> Unit,
     onLogoutClick: () -> Unit,
+    onDeleteAccountClick: () -> Unit,
 ) {
     Box {
         IconButton(onClick = { onExpandedChange(true) }) {
@@ -481,6 +509,20 @@ private fun HomeOverflowMenu(
                 },
                 leadingIcon = {
                     Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Delete account", color = MaterialTheme.colorScheme.error) },
+                onClick = {
+                    onExpandedChange(false)
+                    onDeleteAccountClick()
+                },
+                leadingIcon = {
+                    Icon(
+                        Icons.Filled.Delete,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
                 }
             )
         }
@@ -525,6 +567,72 @@ private fun AboutDialog(onDismiss: () -> Unit) {
         confirmButton = {
             TextButton(onClick = onDismiss) {
                 Text("OK")
+            }
+        }
+    )
+}
+
+@Composable
+private fun DeleteAccountConfirmationDialog(
+    isDeleting: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = { if (!isDeleting) onDismiss() },
+        title = { Text("Delete account?") },
+        text = {
+            Column {
+                if (isDeleting) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.5.dp
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text("Deleting your account and cleaning up your data...")
+                    }
+                } else {
+                    Text(
+                        "This action is permanent and cannot be undone. The following will be deleted:"
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("• All solo canvases you own")
+                    Text("• Images, layers, RTDB entries, and Firestore entries for solo canvases")
+                    Text("• Your membership and old ops from shared canvases")
+                    Text("• Your account and sign-in data")
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        "Canvases you share with collaborators will be transferred to them or kept by their owner.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = !isDeleting
+            ) {
+                if (isDeleting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isDeleting
+            ) {
+                Text("Cancel")
             }
         }
     )
@@ -668,22 +776,24 @@ private fun CanvasGrid(
                             )
                         }
                     )
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                "Delete",
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        },
-                        onClick = { onDelete(canvas) },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Filled.Delete,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    )
+                    if (canvas.ownerId == currentUid ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Delete",
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            },
+                            onClick = { onDelete(canvas) },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Filled.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        )
+                    }
                 }
             }
         }

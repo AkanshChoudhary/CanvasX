@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.my_app.art_collab.domain.model.Canvas
 import com.my_app.art_collab.domain.model.LayerOp
+import com.my_app.art_collab.domain.usecase.auth.DeleteAccountUseCase
 import com.my_app.art_collab.domain.usecase.canvas.CreateCanvasUseCase
 import com.my_app.art_collab.domain.usecase.canvas.DeleteCanvasUseCase
 import com.my_app.art_collab.domain.usecase.canvas.GetCanvasListUseCase
@@ -39,9 +40,13 @@ class HomeViewModel @Inject constructor(
     private val joinCanvasUseCase: JoinCanvasUseCase,
     private val removeContributorUseCase: RemoveContributorUseCase,
     private val pushLayerOpUseCase: PushLayerOpUseCase,
+    private val deleteAccountUseCase: DeleteAccountUseCase,
     private val firebaseAuth: FirebaseAuth,
     private val authRepository: AuthRepository,
 ) : ViewModel() {
+
+    private val _accountDeleted = Channel<Unit>(Channel.BUFFERED)
+    val accountDeleted = _accountDeleted.receiveAsFlow()
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState = _uiState.asStateFlow()
@@ -241,6 +246,35 @@ class HomeViewModel @Inject constructor(
                         _logoutCompleted.send(Unit)
                     } catch (e: Exception) {
                         _uiState.update { it.copy(error = e.message ?: "Sign out failed") }
+                    }
+                }
+            }
+
+            is HomeIntent.ShowDeleteAccountDialog -> {
+                _uiState.update { it.copy(isDeleteAccountDialogVisible = true) }
+            }
+
+            is HomeIntent.DismissDeleteAccountDialog -> {
+                _uiState.update { it.copy(isDeleteAccountDialogVisible = false) }
+            }
+
+            is HomeIntent.DeleteAccount -> {
+                viewModelScope.launch {
+                    _uiState.update { it.copy(isDeletingAccount = true) }
+                    try {
+                        deleteAccountUseCase(_uiState.value.canvases)
+                        _uiState.update {
+                            it.copy(isDeleteAccountDialogVisible = false, isDeletingAccount = false)
+                        }
+                        _accountDeleted.send(Unit)
+                    } catch (e: Exception) {
+                        _uiState.update {
+                            it.copy(
+                                isDeletingAccount = false,
+                                isDeleteAccountDialogVisible = false,
+                                error = e.message ?: "Failed to delete account"
+                            )
+                        }
                     }
                 }
             }

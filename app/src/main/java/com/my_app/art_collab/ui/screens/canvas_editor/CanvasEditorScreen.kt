@@ -76,6 +76,7 @@ import kotlinx.coroutines.launch
 fun CanvasEditorScreen(
     canvasId: String,
     name: String,
+    ownerId: String,
     widthPx: Int,
     heightPx: Int,
     onNavigateBack: () -> Unit
@@ -135,7 +136,7 @@ fun CanvasEditorScreen(
 
     LaunchedEffect(canvasId, widthPx, heightPx) {
         if (widthPx > 0 && heightPx > 0) {
-            viewModel.loadCanvasLayers(canvasId)
+            viewModel.loadCanvasLayers(canvasId, ownerId)
         }
     }
 
@@ -170,6 +171,7 @@ fun CanvasEditorScreen(
                 }
                 Lifecycle.Event.ON_START -> {
                     if (seenProcessStop) {
+                        viewModel.onCanvasForeground(canvasId, ownerId)
                         viewModel.refreshHydrationAfterBackground(canvasId)
                     }
                 }

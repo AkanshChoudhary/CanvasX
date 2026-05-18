@@ -15,7 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import com.my_app.art_collab.ui.navigation.AppNavGraph
 import com.my_app.art_collab.ui.screens.splash.SplashViewModel
 import com.my_app.art_collab.data.session.UserSessionCleaner
-import com.my_app.art_collab.ui.theme.MyApplicationTheme
+import com.my_app.art_collab.ui.theme.CanvasXTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -39,7 +39,7 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         setContent {
-            MyApplicationTheme {
+            CanvasXTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
