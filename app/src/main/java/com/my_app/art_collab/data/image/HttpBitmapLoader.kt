@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.os.Build
-import android.util.Log
 import com.my_app.art_collab.debug.LayerImageDebug
 import java.io.File
 import java.net.HttpURLConnection
@@ -22,10 +21,10 @@ object HttpBitmapLoader {
     fun load(context: Context, urlString: String): Bitmap? {
         val trimmed = urlString.trim()
         if (trimmed.isEmpty()) {
-            Log.w(LayerImageDebug.TAG, "HttpBitmapLoader: empty URL")
+            LayerImageDebug.w(LayerImageDebug.TAG, "HttpBitmapLoader: empty URL")
             return null
         }
-        Log.d(LayerImageDebug.TAG, "HttpBitmapLoader: GET ${LayerImageDebug.pathPreview(trimmed)}")
+        LayerImageDebug.d(LayerImageDebug.TAG, "HttpBitmapLoader: GET ${LayerImageDebug.pathPreview(trimmed)}")
         return try {
             val connection = URL(trimmed).openConnection() as HttpURLConnection
             connection.connectTimeout = 30_000
@@ -38,14 +37,14 @@ object HttpBitmapLoader {
             if (code !in 200..299) {
                 val errSnippet = connection.errorStream?.bufferedReader()?.use { it.readText() }
                     ?.take(400)
-                Log.w(TAG, "HTTP $code for ${trimmed.take(96)} snippet=$errSnippet")
+                LayerImageDebug.w(TAG, "HTTP $code for ${trimmed.take(96)} snippet=$errSnippet")
                 connection.disconnect()
                 return null
             }
             val bytes = connection.inputStream.use { it.readBytes() }
             connection.disconnect()
             if (bytes.isEmpty()) {
-                Log.w(TAG, "Empty body for ${trimmed.take(96)}")
+                LayerImageDebug.w(TAG, "Empty body for ${trimmed.take(96)}")
                 return null
             }
 
@@ -67,11 +66,11 @@ object HttpBitmapLoader {
                 }
             }
             if (bitmap == null) {
-                Log.w(TAG, "Decode failed for ${trimmed.take(96)} (${bytes.size} bytes)")
+                LayerImageDebug.w(TAG, "Decode failed for ${trimmed.take(96)} (${bytes.size} bytes)")
             }
             bitmap
         } catch (e: Exception) {
-            Log.e(TAG, "load failed: ${trimmed.take(120)}", e)
+            LayerImageDebug.e(TAG, "load failed: ${trimmed.take(120)}", e)
             null
         }
     }

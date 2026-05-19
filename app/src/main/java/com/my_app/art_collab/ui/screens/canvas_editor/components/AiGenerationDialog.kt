@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.my_app.art_collab.engine.GeminiApiClient
 import com.my_app.art_collab.ui.screens.canvas_editor.AiGenerationState
 
 @Composable
@@ -56,8 +57,9 @@ fun AiGenerationDialog(
 
                 OutlinedTextField(
                     value = prompt,
-                    onValueChange = { prompt = it },
+                    onValueChange = { if (it.length <= GeminiApiClient.MAX_PROMPT_LENGTH) prompt = it },
                     label = { Text("Describe the image...") },
+                    supportingText = { Text("${prompt.length}/${GeminiApiClient.MAX_PROMPT_LENGTH}") },
                     minLines = 3,
                     maxLines = 5,
                     enabled = !isLoading,

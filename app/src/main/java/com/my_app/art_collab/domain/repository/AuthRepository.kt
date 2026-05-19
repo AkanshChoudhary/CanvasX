@@ -5,6 +5,7 @@ interface AuthRepository {
     fun isUserAuthenticated(): Boolean
     fun getCurrentUserId(): String?
     suspend fun signOut()
+    suspend fun reauthenticate(idToken: String)
     suspend fun deleteUserDocument(userId: String)
     suspend fun deleteAccount()
 }

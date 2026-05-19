@@ -31,6 +31,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
+private const val MAX_CANVAS_DIMENSION = 4096
+private const val MAX_CANVAS_NAME_LENGTH = 60
+
 data class SizePreset(
     val label: String,
     val width: Int,
@@ -61,7 +64,10 @@ fun NewCanvasBottomSheet(
     val isCustom = selectedPreset.label == "Custom"
     val finalWidth = if (isCustom) customWidth.toIntOrNull() ?: 0 else selectedPreset.width
     val finalHeight = if (isCustom) customHeight.toIntOrNull() ?: 0 else selectedPreset.height
-    val isCreateEnabled = finalWidth > 0 && finalHeight > 0
+    val dimensionError = if (isCustom && (finalWidth > MAX_CANVAS_DIMENSION || finalHeight > MAX_CANVAS_DIMENSION)) {
+        "Max ${MAX_CANVAS_DIMENSION}px per side"
+    } else null
+    val isCreateEnabled = finalWidth in 1..MAX_CANVAS_DIMENSION && finalHeight in 1..MAX_CANVAS_DIMENSION
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -129,9 +135,10 @@ fun NewCanvasBottomSheet(
                 ) {
                     OutlinedTextField(
                         value = customWidth,
-                        onValueChange = { customWidth = it.filter { c -> c.isDigit() } },
+                        onValueChange = { customWidth = it.filter { c -> c.isDigit() }.take(5) },
                         label = { Text("Width") },
                         suffix = { Text("px") },
+                        isError = (customWidth.toIntOrNull() ?: 0) > MAX_CANVAS_DIMENSION,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
@@ -139,13 +146,22 @@ fun NewCanvasBottomSheet(
                     )
                     OutlinedTextField(
                         value = customHeight,
-                        onValueChange = { customHeight = it.filter { c -> c.isDigit() } },
+                        onValueChange = { customHeight = it.filter { c -> c.isDigit() }.take(5) },
                         label = { Text("Height") },
                         suffix = { Text("px") },
+                        isError = (customHeight.toIntOrNull() ?: 0) > MAX_CANVAS_DIMENSION,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.weight(1f)
+                    )
+                }
+                if (dimensionError != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = dimensionError,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
             }
@@ -162,8 +178,9 @@ fun NewCanvasBottomSheet(
 
             OutlinedTextField(
                 value = canvasName,
-                onValueChange = { canvasName = it },
+                onValueChange = { if (it.length <= MAX_CANVAS_NAME_LENGTH) canvasName = it },
                 placeholder = { Text("Untitled Canvas") },
+                supportingText = { Text("${canvasName.length}/$MAX_CANVAS_NAME_LENGTH") },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()

@@ -9,7 +9,6 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
-import android.util.Log
 import com.my_app.art_collab.domain.model.Layer
 import com.my_app.art_collab.domain.model.LayerType
 import com.my_app.art_collab.domain.model.TextLayerContent
@@ -66,8 +65,8 @@ class RenderEngine @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.e("RenderEngine", "Render failed", e)
-                Log.e(LayerImageDebug.TAG, "startRenderLoop: renderFrame failed", e)
+                LayerImageDebug.e("RenderEngine", "Render failed", e)
+                LayerImageDebug.e(LayerImageDebug.TAG, "startRenderLoop: renderFrame failed", e)
             } finally {
                 _isRendering.value = false
             }
@@ -98,11 +97,7 @@ class RenderEngine @Inject constructor(
             val imageLayers = visibleLayers.filter { it.type == LayerType.IMAGE || it.type == LayerType.AI_GENERATED }
             val dirtyImage = imageLayers.count { dirtyFlagTracker.isDirty(it) }
             val cachedImage = imageLayers.count { renderCache.get(it.id) != null }
-            Log.d(
-                LayerImageDebug.TAG,
-                "renderFrame: ${request.canvasWidthPx}x${request.canvasHeightPx} total=${visibleLayers.size} " +
-                    "image/ai=${imageLayers.size} dirtyImage=$dirtyImage cachedImage=$cachedImage"
-            )
+            LayerImageDebug.d(LayerImageDebug.TAG, "renderFrame: ${request.canvasWidthPx}x${request.canvasHeightPx} total=${visibleLayers.size} image/ai=${imageLayers.size} dirtyImage=$dirtyImage cachedImage=$cachedImage")
 
             // Step 1: Process dirty layers in parallel
             val parallelJobs = visibleLayers
@@ -126,19 +121,10 @@ class RenderEngine @Inject constructor(
                             }
 
                             dirtyFlagTracker.markClean(layer.id, layer)
-                            Log.d(
-                                LayerImageDebug.TAG,
-                                "renderFrame: processed layer=${layer.id} src=${sourceBitmap.width}x${sourceBitmap.height} " +
-                                    "out=${effectApplied.width}x${effectApplied.height}"
-                            )
+                            LayerImageDebug.d(LayerImageDebug.TAG, "renderFrame: processed layer=${layer.id} src=${sourceBitmap.width}x${sourceBitmap.height} out=${effectApplied.width}x${effectApplied.height}")
                             layer.id to effectApplied
                         } catch (e: Exception) {
-                            Log.e(
-                                LayerImageDebug.TAG,
-                                "renderFrame: layer pipeline FAILED id=${layer.id} " +
-                                    "path=${LayerImageDebug.pathPreview(layer.sourceBitmapPath)}",
-                                e
-                            )
+                            LayerImageDebug.e(LayerImageDebug.TAG, "renderFrame: layer pipeline FAILED id=${layer.id} path=${LayerImageDebug.pathPreview(layer.sourceBitmapPath)}", e)
                             throw e
                         }
                     }
@@ -154,12 +140,7 @@ class RenderEngine @Inject constructor(
                 val layerBitmap = renderCache.get(layer.id)
                 if (layerBitmap == null) {
                     if (layer.type == LayerType.IMAGE || layer.type == LayerType.AI_GENERATED) {
-                        Log.w(
-                            LayerImageDebug.TAG,
-                            "renderFrame: COMPOSITE SKIP (no cache) id=${layer.id} " +
-                                "dirtyWas=${dirtyFlagTracker.isDirty(layer)} " +
-                                "path=${LayerImageDebug.pathPreview(layer.sourceBitmapPath)}"
-                        )
+                        LayerImageDebug.w(LayerImageDebug.TAG, "renderFrame: COMPOSITE SKIP (no cache) id=${layer.id} dirtyWas=${dirtyFlagTracker.isDirty(layer)} path=${LayerImageDebug.pathPreview(layer.sourceBitmapPath)}")
                     }
                     return@forEach
                 }
@@ -179,7 +160,7 @@ class RenderEngine @Inject constructor(
                 )
             }
 
-            Log.d(LayerImageDebug.TAG, "renderFrame: composite done")
+            LayerImageDebug.d(LayerImageDebug.TAG, "renderFrame: composite done")
             composite
         }
 
@@ -201,11 +182,7 @@ class RenderEngine @Inject constructor(
                     val path = layer.sourceBitmapPath
                     val decoded = path?.let { loadBitmapFromPath(it, layer.id) }
                     if (decoded == null) {
-                        Log.w(
-                            LayerImageDebug.TAG,
-                            "loadSourceBitmap: decode failed, layer stays dirty for retry id=${layer.id} " +
-                                "path=${LayerImageDebug.pathPreview(path)}"
-                        )
+                        LayerImageDebug.w(LayerImageDebug.TAG, "loadSourceBitmap: decode failed, layer stays dirty for retry id=${layer.id} path=${LayerImageDebug.pathPreview(path)}")
                     }
                     decoded
                 }
@@ -220,7 +197,7 @@ class RenderEngine @Inject constructor(
         return try {
             val bitmap = when {
                 path.startsWith("content://") -> {
-                    Log.d(LayerImageDebug.TAG, "loadBitmapFromPath: branch=content layer=$layerIdForLog")
+                    LayerImageDebug.d(LayerImageDebug.TAG, "loadBitmapFromPath: branch=content layer=$layerIdForLog")
                     val uri = Uri.parse(path)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                         val source = ImageDecoder.createSource(context.contentResolver, uri)
@@ -234,46 +211,30 @@ class RenderEngine @Inject constructor(
                     }
                 }
                 path.startsWith("file://") -> {
-                    Log.d(LayerImageDebug.TAG, "loadBitmapFromPath: branch=file layer=$layerIdForLog")
+                    LayerImageDebug.d(LayerImageDebug.TAG, "loadBitmapFromPath: branch=file layer=$layerIdForLog")
                     BitmapFactory.decodeFile(path.removePrefix("file://"))
                 }
                 path.startsWith("http://") || path.startsWith("https://") -> {
-                    Log.d(LayerImageDebug.TAG, "loadBitmapFromPath: branch=http layer=$layerIdForLog")
+                    LayerImageDebug.d(LayerImageDebug.TAG, "loadBitmapFromPath: branch=http layer=$layerIdForLog")
                     HttpBitmapLoader.load(context, path)
                 }
                 File(path).exists() -> {
-                    Log.d(LayerImageDebug.TAG, "loadBitmapFromPath: branch=absoluteFile layer=$layerIdForLog")
+                    LayerImageDebug.d(LayerImageDebug.TAG, "loadBitmapFromPath: branch=absoluteFile layer=$layerIdForLog")
                     BitmapFactory.decodeFile(path)
                 }
                 else -> {
-                    Log.w(
-                        LayerImageDebug.TAG,
-                        "loadBitmapFromPath: branch=NONE (unmatched path) layer=$layerIdForLog " +
-                            "path=${LayerImageDebug.pathPreview(path)} exists=${File(path).exists()}"
-                    )
+                    LayerImageDebug.w(LayerImageDebug.TAG, "loadBitmapFromPath: branch=NONE (unmatched path) layer=$layerIdForLog path=${LayerImageDebug.pathPreview(path)} exists=${File(path).exists()}")
                     null
                 }
             }
             if (bitmap != null) {
-                Log.d(
-                    LayerImageDebug.TAG,
-                    "loadBitmapFromPath: OK layer=$layerIdForLog ${bitmap.width}x${bitmap.height}"
-                )
+                LayerImageDebug.d(LayerImageDebug.TAG, "loadBitmapFromPath: OK layer=$layerIdForLog ${bitmap.width}x${bitmap.height}")
             } else {
-                Log.w(
-                    LayerImageDebug.TAG,
-                    "loadBitmapFromPath: decode returned NULL layer=$layerIdForLog " +
-                        "path=${LayerImageDebug.pathPreview(path)}"
-                )
+                LayerImageDebug.w(LayerImageDebug.TAG, "loadBitmapFromPath: decode returned NULL layer=$layerIdForLog path=${LayerImageDebug.pathPreview(path)}")
             }
             bitmap
         } catch (e: Exception) {
-            Log.e(
-                LayerImageDebug.TAG,
-                "loadBitmapFromPath: exception layer=$layerIdForLog path=${LayerImageDebug.pathPreview(path)}",
-                e
-            )
-            Log.e("RenderEngine", "Failed to load bitmap: $path", e)
+            LayerImageDebug.e(LayerImageDebug.TAG, "loadBitmapFromPath: exception layer=$layerIdForLog path=${LayerImageDebug.pathPreview(path)}", e)
             null
         }
     }

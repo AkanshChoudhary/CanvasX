@@ -14,9 +14,9 @@ import com.my_app.art_collab.data.local.db.toDomain
 import com.my_app.art_collab.data.local.db.toEntity
 import com.my_app.art_collab.domain.model.Canvas
 import com.my_app.art_collab.domain.model.CanvasMember
+import com.my_app.art_collab.data.session.ApplicationScope
 import com.my_app.art_collab.domain.repository.CanvasRepository
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -30,6 +30,7 @@ class CanvasRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val firebaseAuth: FirebaseAuth,
     private val thumbnailStore: CanvasThumbnailStore,
+    @ApplicationScope private val appScope: CoroutineScope,
 ) : CanvasRepository {
 
     override fun observeAllCanvases(): Flow<List<Canvas>> {
@@ -291,7 +292,7 @@ class CanvasRepositoryImpl @Inject constructor(
 
         // Prefer server truth so wiping the project in console is reflected even when the
         // Firestore SDK still has an on-disk cache of old library docs.
-        CoroutineScope(Dispatchers.IO).launch {
+        appScope.launch {
             try {
                 val serverSnap = libraryColl.get(Source.SERVER).await()
                 applyLibraryDocumentsToRoom(serverSnap.documents)
@@ -302,7 +303,7 @@ class CanvasRepositoryImpl @Inject constructor(
 
         libraryColl.addSnapshotListener { snapshots, error ->
             if (error != null || snapshots == null) return@addSnapshotListener
-            CoroutineScope(Dispatchers.IO).launch {
+            appScope.launch {
                 applyLibraryDocumentsToRoom(snapshots.documents)
             }
         }

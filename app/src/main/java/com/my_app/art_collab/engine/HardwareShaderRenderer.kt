@@ -9,7 +9,7 @@ import android.graphics.RenderNode
 import android.hardware.HardwareBuffer
 import android.media.Image
 import android.media.ImageReader
-import android.util.Log
+import com.my_app.art_collab.debug.LayerImageDebug
 
 object HardwareShaderRenderer {
     private const val TAG = "HardwareShaderRenderer"
@@ -57,7 +57,7 @@ object HardwareShaderRenderer {
             val image = imageReader.acquireLatestImage() ?: return null
             image.use { copyImageToSoftwareBitmap(it, width, height) }
         } catch (e: Exception) {
-            Log.e(TAG, "Hardware shader render failed", e)
+            LayerImageDebug.e(TAG, "Hardware shader render failed", e)
             null
         } finally {
             imageReader?.close()
@@ -78,7 +78,7 @@ object HardwareShaderRenderer {
                     return copy
                 }
             } catch (e: IllegalArgumentException) {
-                Log.w(TAG, "wrapHardwareBuffer failed; using CPU readback", e)
+                LayerImageDebug.w(TAG, "wrapHardwareBuffer failed; using CPU readback")
             } finally {
                 hwBuffer.close()
             }

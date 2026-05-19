@@ -262,7 +262,7 @@ class HomeViewModel @Inject constructor(
                 viewModelScope.launch {
                     _uiState.update { it.copy(isDeletingAccount = true) }
                     try {
-                        deleteAccountUseCase(_uiState.value.canvases)
+                        deleteAccountUseCase(_uiState.value.canvases, intent.idToken)
                         _uiState.update {
                             it.copy(isDeleteAccountDialogVisible = false, isDeletingAccount = false)
                         }

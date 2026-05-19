@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CanvasX Privacy Policy</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        h1 { color: #5C6BC0; }
+        h2 { color: #3949AB; margin-top: 24px; }
+        h3 { color: #1A237E; }
+        .effective-date { color: #666; font-style: italic; }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 8px; }
+        a { color: #5C6BC0; }
+    </style>
+</head>
+<body>
+    <h1>CanvasX Privacy Policy</h1>
+    <p class="effective-date">Effective Date: May 18, 2026</p>
+
+    <p>CanvasX ("CanvasX," "we," "our," or "the App") is a collaborative image editing app. This Privacy Policy explains what information is collected, how it is used, and how Google Firebase and related Google services process information when you use the App.</p>
+
+    <h2>1. Information We Collect</h2>
+
+    <h3>1.1 Account Information</h3>
+    <p>CanvasX requires Google Sign-In through Firebase Authentication. When you sign in, Firebase Authentication and Google may process information such as:</p>
+    <ul>
+        <li><strong>Firebase user ID</strong> - used to identify your account and associate you with canvases.</li>
+        <li><strong>Email address</strong> - requested through Google Sign-In for account identification.</li>
+        <li><strong>Authentication data</strong> - tokens, user-agent information, IP address, and related security data processed by Firebase Authentication to provide login, account management, abuse prevention, and security.</li>
+    </ul>
+    <p>Google may make profile information, such as display name or profile photo, available as part of the sign-in process. CanvasX does not intentionally store or display that profile information in its canvas records. CanvasX never receives your Google password.</p>
+
+    <h3>1.2 Canvas, Layer, and Collaboration Data</h3>
+    <p>When you create, edit, or join a canvas, CanvasX stores and syncs the information needed to provide collaboration features, including:</p>
+    <ul>
+        <li><strong>Canvas metadata</strong> - canvas ID, name, dimensions, owner ID, member IDs and roles, share code, creation time, and update time.</li>
+        <li><strong>Layer data</strong> - layer IDs, names, order, type, opacity, blend mode, transforms, effects, colors, font settings, and timestamps.</li>
+        <li><strong>Uploaded layer images</strong> - images you import or create in the App, stored in Firebase Storage.</li>
+        <li><strong>Text layers</strong> - text, font family, font size, color, and style choices you add to a canvas.</li>
+        <li><strong>Realtime operations</strong> - edits such as layer adds, removals, transforms, opacity changes, blend mode changes, and effect changes.</li>
+        <li><strong>Session state</strong> - online/offline flags and session timestamps used to keep collaboration state current.</li>
+    </ul>
+
+    <h3>1.3 AI Generation Data</h3>
+    <p>If you use the AI image generation feature, CanvasX sends your prompt to Google's Gemini API to generate an image. The generated image is temporarily saved by the App and then uploaded to Firebase Storage as a canvas layer. Do not include sensitive, confidential, or personal information in AI prompts.</p>
+
+    <h3>1.4 Local Device Data</h3>
+    <p>CanvasX stores some information locally on your device, including:</p>
+    <ul>
+        <li><strong>Local canvas cache</strong> - canvas metadata stored in the App's Room database for loading and offline continuity.</li>
+        <li><strong>Firestore offline cache</strong> - local Firebase cache used by the Firestore SDK.</li>
+        <li><strong>Canvas thumbnails</strong> - JPEG previews saved in the App's private files directory.</li>
+        <li><strong>AI temporary files and share images</strong> - temporary image files in App storage or cache.</li>
+        <li><strong>Exported images</strong> - images you export to your device's Pictures/CanvasX folder.</li>
+    </ul>
+    <p>Local files may remain on your device until deleted by the App, the operating system, or you. Device backup behavior depends on your Android and Google account settings.</p>
+
+    <h3>1.5 Information We Do Not Intentionally Collect</h3>
+    <p>CanvasX does not intentionally collect precise location, contacts, payment card data, advertising identifiers, or Google Analytics events. The current codebase does not include ads, Firebase Analytics, Crashlytics, Performance Monitoring, or Cloud Messaging. The App currently requests the Android Internet permission so it can communicate with Firebase and Google services.</p>
+
+    <h2>2. How We Use Information</h2>
+    <ul>
+        <li>To sign you in and secure your account.</li>
+        <li>To create, save, load, render, and sync canvases and layers.</li>
+        <li>To let invited collaborators view and edit shared canvases in real time.</li>
+        <li>To generate share codes and manage canvas memberships.</li>
+        <li>To upload, retrieve, cache, export, and share canvas images.</li>
+        <li>To generate AI images when you choose to use that feature.</li>
+        <li>To detect, prevent, and respond to abuse, security issues, service errors, or legal obligations.</li>
+    </ul>
+
+    <h2>3. Firebase and Google Services</h2>
+    <p>CanvasX uses Firebase and Google services as infrastructure providers. These services process information according to their own terms and privacy documentation, including:</p>
+    <ul>
+        <li><strong>Firebase Authentication</strong> - Google Sign-In, account authentication, and account deletion.</li>
+        <li><strong>Cloud Firestore</strong> - canvas metadata, memberships, library records, share codes, and sync metadata.</li>
+        <li><strong>Firebase Realtime Database</strong> - realtime layer state, edit operations, and session online flags.</li>
+        <li><strong>Firebase Storage</strong> - uploaded layer image files.</li>
+        <li><strong>Gemini API</strong> - AI image prompt processing and image generation when you use the AI feature.</li>
+    </ul>
+    <p>Firebase may process service data such as app identifiers, package name, IP address, user-agent strings, usage and operational details, and Firebase installation identifiers to provide, secure, maintain, improve, support, and comply with legal obligations for Firebase services. Firebase Authentication is operated from United States data centers. Other Firebase services may process and store data on global Google infrastructure unless a service-specific data location setting applies.</p>
+    <p>For more information, review <a href="https://firebase.google.com/support/privacy/">Privacy and Security in Firebase</a>, the <a href="https://firebase.google.com/terms">Firebase Terms of Service</a>, the <a href="https://firebase.google.com/terms/data-processing-terms/">Firebase Data Processing and Security Terms</a>, the <a href="https://policies.google.com/privacy">Google Privacy Policy</a>, the <a href="https://ai.google.dev/gemini-api/terms">Gemini API Additional Terms</a>, and Google's <a href="https://policies.google.com/terms/generative-ai/use-policy">Generative AI Prohibited Use Policy</a>.</p>
+
+    <h2>4. Play Data Safety Summary</h2>
+    <p>This summary is intended to align this policy with the Google Play Data Safety disclosures for the current App implementation:</p>
+    <ul>
+        <li><strong>Personal information</strong> - email address and Firebase user ID are processed for account creation, sign-in, authentication, account management, and associating you with canvases.</li>
+        <li><strong>User content</strong> - imported images, AI-generated images, canvas layer content, text layers, canvas names, prompts, and exported/shared images are processed to provide editing, collaboration, AI generation, export, and sharing features.</li>
+        <li><strong>App activity</strong> - realtime edit operations, canvas membership actions, share-code joins, and session online flags are processed to sync collaborative editing and maintain canvas state.</li>
+        <li><strong>App info and performance/service data</strong> - Firebase and Google services may process device, app, network, IP address, user-agent, operational, security, abuse-prevention, and diagnostics data as described in their own documentation.</li>
+        <li><strong>Sharing</strong> - data is shared with Google/Firebase as service providers, with canvas collaborators as part of collaboration, with Google's Gemini API when you use AI generation, and with other apps only when you choose to export or share.</li>
+        <li><strong>Purpose</strong> - data is used for app functionality, account management, authentication, security, abuse prevention, legal compliance, collaboration, storage, AI generation, export, and sharing. It is not used for advertising and is not sold.</li>
+        <li><strong>Security</strong> - network communication with Firebase and Google services uses HTTPS/TLS. Access control depends on Firebase Authentication and Firebase Security Rules.</li>
+        <li><strong>Deletion</strong> - account deletion is available in the App and is described in the Data Retention and Deletion section below.</li>
+    </ul>
+
+    <h2>5. Sharing of Information</h2>
+    <p>We do not sell your personal information. Information may be shared as follows:</p>
+    <ul>
+        <li><strong>With collaborators</strong> - users who have access to a canvas can see and edit canvas content, layer data, text layers, uploaded images, generated images, share codes, membership information, and realtime editing activity for that canvas.</li>
+        <li><strong>With Google/Firebase</strong> - as infrastructure providers for authentication, storage, database, and AI generation.</li>
+        <li><strong>With other apps you choose</strong> - when you use Android sharing or export features, the image is handled by the destination app or system feature you select.</li>
+        <li><strong>For legal and safety reasons</strong> - if required to comply with law, enforce terms, protect users, or protect the App and its services.</li>
+    </ul>
+
+    <h2>6. Data Retention and Deletion</h2>
+    <ul>
+        <li><strong>Active account data</strong> - retained while your account exists and as needed to provide the App.</li>
+        <li><strong>Canvas data</strong> - retained until the canvas is deleted, you leave the canvas, ownership is transferred, or your account is deleted as described below.</li>
+        <li><strong>Realtime operations</strong> - periodically pruned, cleared when all users leave a canvas session, and deleted from shared canvases during account deletion so historical operations tied to the deleting account are removed.</li>
+        <li><strong>Layer images</strong> - deleted from Firebase Storage when a layer, canvas, or eligible account data is deleted.</li>
+        <li><strong>Local data</strong> - cached data, thumbnails, temporary files, and exports may remain on your device until deleted by the App, your device, or you.</li>
+    </ul>
+    <p>You can delete your account from the App menu. When account deletion succeeds:</p>
+    <ul>
+        <li>Canvases you own without collaborators are deleted, including their Firestore canvas records, Realtime Database canvas data, and Firebase Storage files under that canvas.</li>
+        <li>Canvases you own with collaborators are transferred to another collaborator so their work is preserved. Your membership and library entry are removed from those canvases.</li>
+        <li>For canvases where you are a collaborator, your membership and library entry are removed while the canvas remains available to its owner and remaining collaborators.</li>
+        <li>Historical Realtime Database operation logs are deleted from shared canvases associated with your account deletion. Current layer state and canvas files for shared canvases are preserved for remaining collaborators.</li>
+        <li>Your top-level Firestore user document, if present, is deleted.</li>
+        <li>Your local canvas cache is cleared when the signed-in account changes.</li>
+        <li>Your Firebase Authentication account is deleted.</li>
+    </ul>
+    <p>Shared canvas images and layer state are not deleted solely because one collaborator deletes their account. They remain available to the remaining owner or collaborator. Exported images saved outside the App, such as files in your device gallery or images shared to other apps, are not deleted by account deletion.</p>
+    <p>Firebase and Google may retain certain service logs, backup data, security records, or legal records for the periods described in their own policies and terms.</p>
+
+    <h2>7. Security</h2>
+    <p>CanvasX uses Firebase security features and app-level safeguards, including:</p>
+    <ul>
+        <li>HTTPS/TLS for network communication with Firebase and Google services.</li>
+        <li>Firebase Authentication for account access.</li>
+        <li>Firebase Security Rules intended to restrict access to authorized users and collaborators.</li>
+        <li>Firebase encryption and logical isolation practices described in Firebase's privacy and security documentation.</li>
+        <li>A maximum of two members per canvas in the current collaboration model.</li>
+    </ul>
+    <p>No service can guarantee absolute security. You are responsible for keeping your Google account secure and sharing canvas codes only with people you trust.</p>
+
+    <h2>8. Your Choices and Rights</h2>
+    <p>Depending on your location, you may have rights to access, correct, delete, export, restrict, object to, or receive a copy of certain personal information. You can exercise many choices directly in the App:</p>
+    <ul>
+        <li>Delete individual canvases.</li>
+        <li>Remove collaborators from canvases you own.</li>
+        <li>Export canvas images to your device.</li>
+        <li>Share or stop sharing canvas codes.</li>
+        <li>Sign out or delete your account.</li>
+    </ul>
+    <p>For requests that cannot be completed in the App, contact us using the information below.</p>
+
+    <h2>9. Children's Privacy</h2>
+    <p>CanvasX is not directed to children. Because the App includes AI image generation through the Gemini API, the App is not intended for users under 18. We do not knowingly collect personal information from children. If you believe a child has provided personal information through CanvasX, contact us so we can review and delete it as appropriate.</p>
+
+    <h2>10. Changes to This Policy</h2>
+    <p>We may update this Privacy Policy from time to time. If we make material changes, we will provide notice through the App or another reasonable method. Continued use of the App after a policy update means you accept the updated policy.</p>
+
+    <h2>11. Contact Us</h2>
+    <p>For privacy questions, deletion requests, or data requests:</p>
+    <p>Email: <a href="mailto:akanshchoudhary79@gmail.com">akanshchoudhary79@gmail.com</a></p>
+
+</body>
+</html>

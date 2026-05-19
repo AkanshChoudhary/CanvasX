@@ -3,6 +3,7 @@ package com.my_app.art_collab.data.repository
 import android.net.Uri
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
+import com.my_app.art_collab.debug.LayerImageDebug
 import com.my_app.art_collab.domain.repository.StorageRepository
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -23,7 +24,7 @@ class StorageRepositoryImpl @Inject constructor(
             val storageRef = storage.reference.child("canvases/$canvasId/layers/${layerId}.png")
             storageRef.delete().await()
         } catch (e: Exception) {
-            e.printStackTrace()
+            LayerImageDebug.e(TAG, "deleteImage failed canvasId=$canvasId layerId=$layerId", e)
         }
     }
 
@@ -32,7 +33,7 @@ class StorageRepositoryImpl @Inject constructor(
         try {
             deleteStorageTree(root)
         } catch (e: Exception) {
-            e.printStackTrace()
+            LayerImageDebug.e(TAG, "deleteAllCanvasFiles failed canvasId=$canvasId", e)
         }
     }
 
@@ -42,11 +43,15 @@ class StorageRepositoryImpl @Inject constructor(
             try {
                 item.delete().await()
             } catch (e: Exception) {
-                e.printStackTrace()
+                LayerImageDebug.e(TAG, "deleteStorageTree item failed: ${item.path}", e)
             }
         }
         list.prefixes.forEach { prefix ->
             deleteStorageTree(prefix)
         }
+    }
+
+    private companion object {
+        const val TAG = "StorageRepository"
     }
 }

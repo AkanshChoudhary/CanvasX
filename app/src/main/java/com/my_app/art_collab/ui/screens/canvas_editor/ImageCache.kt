@@ -7,7 +7,6 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
-import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
@@ -26,17 +25,14 @@ class ImageCache(private val context: Context) {
 
         val path = layer.sourceBitmapPath ?: run {
             if (loggedNoPath.add(layer.id)) {
-                Log.d(LayerImageDebug.TAG, "ImageCache.getBitmap: no path layer=${layer.id} type=${layer.type}")
+                LayerImageDebug.d(LayerImageDebug.TAG, "ImageCache.getBitmap: no path layer=${layer.id} type=${layer.type}")
             }
             return null
         }
         // Remote URLs must be loaded off the main thread (see CanvasViewport); drawLayer runs on UI.
         if (path.startsWith("http://") || path.startsWith("https://")) {
             if (loggedHttpSkips.add(layer.id)) {
-                Log.d(
-                    LayerImageDebug.TAG,
-                    "ImageCache.getBitmap: skip http(s) on UI thread layer=${layer.id} (preload/render cache must supply)"
-                )
+                LayerImageDebug.d(LayerImageDebug.TAG, "ImageCache.getBitmap: skip http(s) on UI thread layer=${layer.id} (preload/render cache must supply)")
             }
             return null
         }
@@ -71,8 +67,7 @@ class ImageCache(private val context: Context) {
                 else -> null
             }
         } catch (e: Exception) {
-            Log.e(LayerImageDebug.TAG, "ImageCache.loadBitmap failed path=${LayerImageDebug.pathPreview(path)}", e)
-            e.printStackTrace()
+            LayerImageDebug.e(LayerImageDebug.TAG, "ImageCache.loadBitmap failed path=${LayerImageDebug.pathPreview(path)}", e)
             null
         }
     }

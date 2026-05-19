@@ -3,7 +3,6 @@ package com.my_app.art_collab.ui.screens.auth
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -61,6 +60,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.my_app.art_collab.R
+import com.my_app.art_collab.debug.LayerImageDebug
 import com.my_app.art_collab.ui.LegalDocActivity
 
 @Composable
@@ -308,7 +308,7 @@ fun AuthScreen(
                                 val googleSignInClient = GoogleSignIn.getClient(context, gso)
                                 launcher.launch(googleSignInClient.signInIntent)
                             } catch (e: Exception) {
-                                Log.e("AuthScreen", "Error launching Google Sign-In", e)
+                                LayerImageDebug.e("AuthScreen", "Error launching Google Sign-In", e)
                             }
                         },
                         modifier = Modifier

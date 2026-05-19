@@ -3,7 +3,6 @@ package com.my_app.art_collab.ui.screens.canvas_editor
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
-import android.util.Log
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -242,15 +241,10 @@ class CanvasEditorViewModel @Inject constructor(
                     renderEngine.invalidateAll()
                     fetchOk = true
                     remoteLayers.filter { it.type == LayerType.IMAGE || it.type == LayerType.AI_GENERATED }.forEach { l ->
-                        Log.d(
-                            LayerImageDebug.TAG,
-                            "loadCanvasLayers: in-memory layer id=${l.id} path=${LayerImageDebug.pathPreview(l.sourceBitmapPath)} " +
-                                "effects=${l.effectChain.size}"
-                        )
+                        LayerImageDebug.d(LayerImageDebug.TAG, "loadCanvasLayers: in-memory layer id=${l.id} path=${LayerImageDebug.pathPreview(l.sourceBitmapPath)} effects=${l.effectChain.size}")
                     }
                 } catch (e: Exception) {
-                    Log.e(LayerImageDebug.TAG, "loadCanvasLayers: fetch failed", e)
-                    e.printStackTrace()
+                    LayerImageDebug.e(LayerImageDebug.TAG, "loadCanvasLayers: fetch failed", e)
                 } finally {
                     _isLoadingLayers.value = false
                 }
@@ -277,13 +271,9 @@ class CanvasEditorViewModel @Inject constructor(
                             awaitRenderSettled()
                         }
                         if (hydrationOk == null) {
-                            Log.w(
-                                LayerImageDebug.TAG,
-                                "loadCanvasLayers: hydration TIMEOUT ${HYDRATION_TIMEOUT_MS}ms canvasId=$canvasId " +
-                                    "(preload/render may be incomplete)"
-                            )
+                            LayerImageDebug.w(LayerImageDebug.TAG, "loadCanvasLayers: hydration TIMEOUT ${HYDRATION_TIMEOUT_MS}ms canvasId=$canvasId (preload/render may be incomplete)")
                         } else {
-                            Log.d(LayerImageDebug.TAG, "loadCanvasLayers: hydration finished canvasId=$canvasId")
+                            LayerImageDebug.d(LayerImageDebug.TAG, "loadCanvasLayers: hydration finished canvasId=$canvasId")
                         }
                     }
                 } finally {
@@ -312,8 +302,7 @@ class CanvasEditorViewModel @Inject constructor(
                             renderEngine.invalidateAll()
                             fetchOk = true
                         } catch (e: Exception) {
-                            Log.e(LayerImageDebug.TAG, "refreshHydrationAfterBackground: fetch failed", e)
-                            e.printStackTrace()
+                            LayerImageDebug.e(LayerImageDebug.TAG, "refreshHydrationAfterBackground: fetch failed", e)
                         }
                         if (fetchOk) {
                             preloadRemoteLayerImages(_layers.value)
@@ -321,7 +310,7 @@ class CanvasEditorViewModel @Inject constructor(
                         }
                     }
                     if (hydrationOk == null) {
-                        Log.w(LayerImageDebug.TAG, "refreshHydrationAfterBackground: TIMEOUT ${HYDRATION_TIMEOUT_MS}ms")
+                        LayerImageDebug.w(LayerImageDebug.TAG, "refreshHydrationAfterBackground: TIMEOUT ${HYDRATION_TIMEOUT_MS}ms")
                     }
                 } finally {
                     _canvasInteractionBlocked.value = false
@@ -375,7 +364,7 @@ class CanvasEditorViewModel @Inject constructor(
         runCatching {
             fetchLayersUseCase.clearOpsIfNoOneOnline(canvasId)
         }.onFailure { e ->
-            Log.w(LayerImageDebug.TAG, "onCanvasBackground: clearOpsIfNoOneOnline failed", e)
+            LayerImageDebug.w(LayerImageDebug.TAG, "onCanvasBackground: clearOpsIfNoOneOnline failed: ${e.toString()}")
         }
     }
 
@@ -383,7 +372,7 @@ class CanvasEditorViewModel @Inject constructor(
         runCatching {
             fetchLayersUseCase.updateSessionOnlineFlags(canvasId, activeIsOwner, online)
         }.onFailure { e ->
-            Log.w(LayerImageDebug.TAG, "markSessionOnline failed canvasId=$canvasId online=$online", e)
+            LayerImageDebug.w(LayerImageDebug.TAG, "markSessionOnline failed canvasId=$canvasId online=$online : ${e.toString()}")
         }
     }
 
@@ -403,7 +392,7 @@ class CanvasEditorViewModel @Inject constructor(
                         fetchLayersUseCase.pruneOpsToLimit(canvasId, OPS_KEEP_TARGET)
                     }
                 }.onFailure { e ->
-                    Log.w(LayerImageDebug.TAG, "startOpsMaintenance: prune failed canvasId=$canvasId", e)
+                    LayerImageDebug.w(LayerImageDebug.TAG, "startOpsMaintenance: prune failed canvasId=$canvasId : ${e.toString()}")
                 }
             }
         }
@@ -432,7 +421,7 @@ class CanvasEditorViewModel @Inject constructor(
                     persistCanvasThumbnailUseCase(canvasId, copy)
                     lastSavedCompositeGeneration = gen
                 } catch (e: Exception) {
-                    Log.w(LayerImageDebug.TAG, "persistThumbnailSnapshot failed canvasId=$canvasId", e)
+                    LayerImageDebug.w(LayerImageDebug.TAG, "persistThumbnailSnapshot failed canvasId=$canvasId : ${e.toString()}")
                     return@withLock
                 } finally {
                     copy.recycle()
@@ -449,39 +438,26 @@ class CanvasEditorViewModel @Inject constructor(
             l.id to p
         }
         if (targets.isEmpty()) {
-            Log.d(
-                LayerImageDebug.TAG,
-                "preloadRemoteLayerImages: no http(s) image targets (layers=${layers.size}) " +
-                    "(paths may be empty, local file, or content://)"
-            )
+            LayerImageDebug.d(LayerImageDebug.TAG, "preloadRemoteLayerImages: no http(s) image targets (layers=${layers.size}) (paths may be empty, local file, or content://)")
             _preloadedRemoteBitmaps.value = emptyMap()
             return
         }
-        Log.d(LayerImageDebug.TAG, "preloadRemoteLayerImages: loading ${targets.size} URL(s)")
+        LayerImageDebug.d(LayerImageDebug.TAG, "preloadRemoteLayerImages: loading ${targets.size} URL(s)")
         val loaded = coroutineScope {
             targets.map { (id, url) ->
                 async(Dispatchers.IO) {
                     val bmp = ImageCache.loadBitmapFromHttpUrl(appContext, url)
                     if (bmp != null) {
-                        Log.d(
-                            LayerImageDebug.TAG,
-                            "preloadRemoteLayerImages: OK layerId=$id ${bmp.width}x${bmp.height} url=${LayerImageDebug.pathPreview(url)}"
-                        )
+                        LayerImageDebug.d(LayerImageDebug.TAG, "preloadRemoteLayerImages: OK layerId=$id ${bmp.width}x${bmp.height} url=${LayerImageDebug.pathPreview(url)}")
                         id to bmp
                     } else {
-                        Log.w(
-                            LayerImageDebug.TAG,
-                            "preloadRemoteLayerImages: FAIL layerId=$id url=${LayerImageDebug.pathPreview(url)}"
-                        )
+                        LayerImageDebug.w(LayerImageDebug.TAG, "preloadRemoteLayerImages: FAIL layerId=$id url=${LayerImageDebug.pathPreview(url)}")
                         null
                     }
                 }
             }.awaitAll().filterNotNull().toMap()
         }
-        Log.d(
-            LayerImageDebug.TAG,
-            "preloadRemoteLayerImages: done loaded=${loaded.size}/${targets.size} ids=${loaded.keys}"
-        )
+        LayerImageDebug.d(LayerImageDebug.TAG, "preloadRemoteLayerImages: done loaded=${loaded.size}/${targets.size} ids=${loaded.keys}")
         _preloadedRemoteBitmaps.value = loaded
     }
 
@@ -489,10 +465,7 @@ class CanvasEditorViewModel @Inject constructor(
         val w = _canvasWidth.value
         val h = _canvasHeight.value
         if (w <= 0 || h <= 0) {
-            Log.w(
-                LayerImageDebug.TAG,
-                "awaitRenderSettled: canvas size not set yet w=$w h=$h — render may be skipped"
-            )
+            LayerImageDebug.w(LayerImageDebug.TAG, "awaitRenderSettled: canvas size not set yet w=$w h=$h — render may be skipped")
             delay(120)
             return
         }
@@ -809,7 +782,7 @@ class CanvasEditorViewModel @Inject constructor(
                 val snapshotUpdate = pushLayerOpUseCase.buildLayerDataMap(canvasId, newLayer, blobUrl, op.type)
                 pushLayerOpUseCase(canvasId, op, snapshotUpdate)
             } catch (e: Exception) {
-                e.printStackTrace()
+                LayerImageDebug.e(LayerImageDebug.TAG, "addImageLayer failed", e)
             }
         }
     }
@@ -889,10 +862,15 @@ class CanvasEditorViewModel @Inject constructor(
 
         fun generateAiLayer(canvasId: String, prompt: String) {
             viewModelScope.launch {
+                val sanitized = GeminiApiClient.sanitizePrompt(prompt)
+                if (sanitized.isBlank()) {
+                    _aiState.value = AiGenerationState.Error("Prompt is empty after sanitization")
+                    return@launch
+                }
                 _aiState.value = AiGenerationState.Loading
                 try {
                     val fullPrompt = "Generate exactly 1 image, no text in response. " +
-                            "Keep it simple and direct. $prompt"
+                            "Keep it simple and direct. $sanitized"
                     val bitmap = GeminiApiClient.generateImage(fullPrompt)
 
                     val file = File(appContext.filesDir, "ai_${UUID.randomUUID()}.png")
@@ -947,13 +925,13 @@ class CanvasEditorViewModel @Inject constructor(
                 try {
                     pushLayerOpUseCase(canvasId, op, snapshotUpdate)
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    LayerImageDebug.e(LayerImageDebug.TAG, "deleteLayer op push failed", e)
                 }
                 if (deleteStorageFile) {
                     try {
                         deleteLayerImageUseCase(canvasId, layerId)
                     } catch (e: Exception) {
-                        e.printStackTrace()
+                        LayerImageDebug.e(LayerImageDebug.TAG, "deleteLayer storage cleanup failed", e)
                     }
                 }
             }

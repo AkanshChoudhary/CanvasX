@@ -6,7 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RuntimeShader
 import android.graphics.Shader
-import android.util.Log
+import com.my_app.art_collab.debug.LayerImageDebug
 import com.my_app.art_collab.domain.model.BlendMode
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,10 +25,10 @@ class BlendModeProcessor @Inject constructor() {
         blendMode: BlendMode,
         opacity: Float
     ): Bitmap {
-        Log.d(TAG, "composite() called: mode=$blendMode, opacity=$opacity, base=${base.width}x${base.height}, blend=${blend.width}x${blend.height}")
-        
+        LayerImageDebug.d(TAG, "composite() called: mode=$blendMode, opacity=$opacity, base=${base.width}x${base.height}, blend=${blend.width}x${blend.height}")
+
         if (blendMode == BlendMode.NORMAL) {
-            Log.d(TAG, "Using NORMAL blend (no shader)")
+            LayerImageDebug.d(TAG, "Using NORMAL blend (no shader)")
             return compositeNormal(base, blend, opacity)
         }
 
@@ -45,7 +45,7 @@ class BlendModeProcessor @Inject constructor() {
         
         return try {
             val runtimeShader = RuntimeShader(shaderSource)
-            Log.d(TAG, "RuntimeShader created successfully for $blendMode")
+            LayerImageDebug.d(TAG, "RuntimeShader created successfully for $blendMode")
 
             runtimeShader.setInputBuffer(
                 "base",
@@ -64,14 +64,14 @@ class BlendModeProcessor @Inject constructor() {
             }
             
             if (result != null) {
-                Log.d(TAG, "AGSL shader rendered successfully for $blendMode")
+                LayerImageDebug.d(TAG, "AGSL shader rendered successfully for $blendMode")
                 result
             } else {
-                Log.w(TAG, "HardwareShaderRenderer returned null for $blendMode, falling back to normal")
+                LayerImageDebug.w(TAG, "HardwareShaderRenderer returned null for $blendMode, falling back to normal")
                 compositeNormal(base, blend, opacity)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "AGSL shader failed for $blendMode: ${e.message}", e)
+            LayerImageDebug.e(TAG, "AGSL shader failed for $blendMode: ${e.message}", e)
             compositeNormal(base, blend, opacity)
         }
     }

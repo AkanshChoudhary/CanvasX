@@ -45,6 +45,12 @@ class AuthRepositoryImpl @Inject constructor(
         GoogleSignIn.getClient(appContext, gso).signOut().await()
     }
 
+    override suspend fun reauthenticate(idToken: String) {
+        val user = auth.currentUser ?: throw IllegalStateException("No user signed in")
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        user.reauthenticateAndRetrieveData(credential).await()
+    }
+
     override suspend fun deleteUserDocument(userId: String) {
         firestore.collection(COL_USERS).document(userId).delete().await()
     }

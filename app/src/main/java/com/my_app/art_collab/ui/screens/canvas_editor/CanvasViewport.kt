@@ -1,7 +1,6 @@
 package com.my_app.art_collab.ui.screens.canvas_editor
 
 import android.graphics.Bitmap
-import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -80,10 +79,7 @@ fun CanvasViewport(
             l.id to p
         }.toMap()
         if (targets.isNotEmpty()) {
-            Log.d(
-                LayerImageDebug.TAG,
-                "CanvasViewport supplemental HTTP load: count=${targets.size} ids=${targets.keys}"
-            )
+            LayerImageDebug.d(LayerImageDebug.TAG, "CanvasViewport supplemental HTTP load: count=${targets.size} ids=${targets.keys}")
         }
         supplementalRemoteBitmaps.keys.retainAll(targets.keys)
         coroutineScope {
@@ -91,25 +87,16 @@ fun CanvasViewport(
                 launch(Dispatchers.IO) {
                     val bmp = ImageCache.loadBitmapFromHttpUrl(appContext, url)
                     if (bmp == null) {
-                        Log.w(
-                            LayerImageDebug.TAG,
-                            "CanvasViewport supplemental: FAIL layerId=$id url=${LayerImageDebug.pathPreview(url)}"
-                        )
+                        LayerImageDebug.w(LayerImageDebug.TAG, "CanvasViewport supplemental: FAIL layerId=$id url=${LayerImageDebug.pathPreview(url)}")
                         return@launch
                     }
                     withContext(Dispatchers.Main.immediate) {
                         val stillSame = latestLayers.value.any { it.id == id && it.sourceBitmapPath == url }
                         if (stillSame) {
                             supplementalRemoteBitmaps[id] = bmp
-                            Log.d(
-                                LayerImageDebug.TAG,
-                                "CanvasViewport supplemental: OK layerId=$id ${bmp.width}x${bmp.height}"
-                            )
+                            LayerImageDebug.d(LayerImageDebug.TAG, "CanvasViewport supplemental: OK layerId=$id ${bmp.width}x${bmp.height}")
                         } else {
-                            Log.w(
-                                LayerImageDebug.TAG,
-                                "CanvasViewport supplemental: dropped (layer/url changed) layerId=$id"
-                            )
+                            LayerImageDebug.w(LayerImageDebug.TAG, "CanvasViewport supplemental: dropped (layer/url changed) layerId=$id")
                         }
                     }
                 }

@@ -1,6 +1,5 @@
 package com.my_app.art_collab.data.repository
 
-import android.util.Log
 import com.google.firebase.database.ChildEventListener
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -39,7 +38,7 @@ class RealtimeDBRepositoryImpl @Inject constructor() : RealtimeDBRepository {
         try {
             database.reference.updateChildren(updates).await()
         } catch (e: Exception) {
-            e.printStackTrace()
+            LayerImageDebug.e(LayerImageDebug.TAG, "pushOpWithSnapshot failed", e)
         }
     }
 
@@ -117,10 +116,7 @@ class RealtimeDBRepositoryImpl @Inject constructor() : RealtimeDBRepository {
             else -> null
         }
         if ((layer.type == LayerType.IMAGE || layer.type == LayerType.AI_GENERATED) && resolved.isNullOrBlank()) {
-            Log.w(
-                LayerImageDebug.TAG,
-                "buildLayerDataMap: image layer ${layer.id} has no blobUrl/sourceBitmapPath for write"
-            )
+            LayerImageDebug.w(LayerImageDebug.TAG, "buildLayerDataMap: image layer ${layer.id} has no blobUrl/sourceBitmapPath for write")
         }
         return resolved
     }
@@ -152,11 +148,10 @@ class RealtimeDBRepositoryImpl @Inject constructor() : RealtimeDBRepository {
         return try {
             val snapshot = database.getReference("canvases/$canvasId/layers").get().await()
             val list = parseLayers(snapshot, canvasId)
-            Log.d(LayerImageDebug.TAG, "fetchLayers: canvasId=$canvasId count=${list.size}")
+            LayerImageDebug.d(LayerImageDebug.TAG, "fetchLayers: canvasId=$canvasId count=${list.size}")
             list
         } catch (e: Exception) {
-            Log.e(LayerImageDebug.TAG, "fetchLayers failed canvasId=$canvasId", e)
-            e.printStackTrace()
+            LayerImageDebug.e(LayerImageDebug.TAG, "fetchLayers failed canvasId=$canvasId", e)
             emptyList()
         }
     }
@@ -218,10 +213,7 @@ class RealtimeDBRepositoryImpl @Inject constructor() : RealtimeDBRepository {
         }
         if (updates.isNotEmpty()) {
             opsRef.updateChildren(updates).await()
-            Log.d(
-                LayerImageDebug.TAG,
-                "pruneOpsToLimit: canvasId=$canvasId total=$total deleted=${updates.size} keep=$keepTarget"
-            )
+            LayerImageDebug.d(LayerImageDebug.TAG, "pruneOpsToLimit: canvasId=$canvasId total=$total deleted=${updates.size} keep=$keepTarget")
         }
     }
 
@@ -250,7 +242,7 @@ class RealtimeDBRepositoryImpl @Inject constructor() : RealtimeDBRepository {
         val collaboratorOnline = sessionSnap.child("collaboratorOnline").getValue(Boolean::class.java) ?: false
         if (!ownerOnline && !collaboratorOnline) {
             database.getReference("canvases/$canvasId/ops").removeValue().await()
-            Log.d(LayerImageDebug.TAG, "clearOpsIfNoOneOnline: removed ops for canvasId=$canvasId")
+            LayerImageDebug.d(LayerImageDebug.TAG, "clearOpsIfNoOneOnline: removed ops for canvasId=$canvasId")
         }
     }
 
@@ -290,20 +282,12 @@ class RealtimeDBRepositoryImpl @Inject constructor() : RealtimeDBRepository {
             val rawEffectChildren = if (effectsSnap.exists()) effectsSnap.children.toList() else emptyList()
             val effectChain = rawEffectChildren.mapNotNull { parseEffect(it) }
             if (rawEffectChildren.size != effectChain.size) {
-                Log.w(
-                    LayerImageDebug.TAG,
-                    "parseLayers: ${rawEffectChildren.size - effectChain.size} effect(s) failed to parse for layer=$layerId " +
-                        "(keys=${rawEffectChildren.mapNotNull { it.key }})"
-                )
+                LayerImageDebug.w(LayerImageDebug.TAG, "parseLayers: ${rawEffectChildren.size - effectChain.size} effect(s) failed to parse for layer=$layerId (keys=${rawEffectChildren.mapNotNull { it.key }})")
             }
 
             val blobFromDb = child.child("blobUrl").getValue(String::class.java)
             if (layerType == LayerType.IMAGE || layerType == LayerType.AI_GENERATED) {
-                Log.d(
-                    LayerImageDebug.TAG,
-                    "parseLayers: layer=$layerType id=$layerId blobUrl=${LayerImageDebug.pathPreview(blobFromDb)} " +
-                        "effectsParsed=${effectChain.size}/${rawEffectChildren.size} z=${child.child("order").value.asFirebaseInt() ?: 0}"
-                )
+                LayerImageDebug.d(LayerImageDebug.TAG, "parseLayers: layer=$layerType id=$layerId blobUrl=${LayerImageDebug.pathPreview(blobFromDb)} effectsParsed=${effectChain.size}/${rawEffectChildren.size} z=${child.child("order").value.asFirebaseInt() ?: 0}")
             }
 
             Layer(
@@ -457,7 +441,7 @@ class RealtimeDBRepositoryImpl @Inject constructor() : RealtimeDBRepository {
                 blockSize = snap.child("blockSize").getValue(Double::class.java)?.toFloat() ?: 2f
             )
             else -> {
-                Log.w(LayerImageDebug.TAG, "parseEffect: unknown type='$type' effectId=$effectId")
+                LayerImageDebug.w(LayerImageDebug.TAG, "parseEffect: unknown type='$type' effectId=$effectId")
                 null
             }
         }

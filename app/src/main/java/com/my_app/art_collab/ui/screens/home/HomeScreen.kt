@@ -355,7 +355,18 @@ private fun HomeScreenContent(
     if (uiState.isDeleteAccountDialogVisible) {
         DeleteAccountConfirmationDialog(
             isDeleting = uiState.isDeletingAccount,
-            onConfirm = { viewModel.handleIntent(HomeIntent.DeleteAccount) },
+            onConfirm = {
+                val account = com.google.android.gms.auth.api.signin.GoogleSignIn
+                    .getLastSignedInAccount(context)
+                val idToken = account?.idToken
+                if (idToken != null) {
+                    viewModel.handleIntent(HomeIntent.DeleteAccount(idToken))
+                } else {
+                    viewModel.handleIntent(HomeIntent.DismissDeleteAccountDialog)
+                    viewModel.handleIntent(HomeIntent.ClearError)
+                    Toast.makeText(context, "Please sign in again before deleting your account", Toast.LENGTH_LONG).show()
+                }
+            },
             onDismiss = { viewModel.handleIntent(HomeIntent.DismissDeleteAccountDialog) }
         )
     }
@@ -814,15 +825,16 @@ private fun RenameDialog(
         text = {
             OutlinedTextField(
                 value = name,
-                onValueChange = { name = it },
+                onValueChange = { if (it.length <= 60) name = it },
                 label = { Text("Canvas name") },
+                supportingText = { Text("${name.length}/60") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(name) },
+                onClick = { onConfirm(name.trim()) },
                 enabled = name.isNotBlank()
             ) {
                 Text("Rename")

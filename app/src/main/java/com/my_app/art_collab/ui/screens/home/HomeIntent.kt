@@ -28,6 +28,6 @@ sealed class HomeIntent {
     data object SignOut : HomeIntent()
     data object ShowDeleteAccountDialog : HomeIntent()
     data object DismissDeleteAccountDialog : HomeIntent()
-    data object DeleteAccount : HomeIntent()
+    data class DeleteAccount(val idToken: String) : HomeIntent()
 }
 
