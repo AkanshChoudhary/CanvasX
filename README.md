@@ -80,7 +80,3 @@ Rendering is split into an instant display path and an asynchronous processing p
 - Used Compose state, ViewModels, Flows, and Hilt to keep UI and data responsibilities separated.
 - Added account/session cleanup and local persistence so the app behaves predictably across sign-in, sign-out, and account deletion.
 - Captured the final screenshots from a running Pixel 9 Pro emulator with a real authenticated app session.
-
-## License
-
-This project is intended as a portfolio project. Add a license before accepting external contributions or reuse.
