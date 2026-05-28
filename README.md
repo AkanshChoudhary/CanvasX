@@ -19,6 +19,20 @@ CanvasX is a collaborative Android image editor built with Kotlin, Jetpack Compo
 - Google authentication, share codes, collaborator management, account deletion, and local session cleanup.
 - Gemini-powered image generation flow that inserts AI output as a canvas layer.
 
+## Engineering Highlights
+
+CanvasX has several implementation details that go beyond a standard CRUD Android app:
+
+- **Hybrid render pipeline:** The editor uses an instant Compose display path for responsive gestures and a background processing path for expensive image work. This keeps dragging, scaling, and layer selection responsive while the render engine recomputes processed bitmaps asynchronously.
+- **GPU-assisted effects with AGSL:** Effects are implemented with Android Graphics Shading Language shaders and rendered through `RenderNode`, `HardwareRenderer`, and `ImageReader`. Moving effect work onto the GPU is a better fit for pixel-heavy operations like blur, saturation, exposure, sharpening, vignette, grain, and color temperature than repeatedly transforming large bitmaps on the UI thread.
+- **Render caching:** Processed layer bitmaps are cached by layer so unchanged layers do not need to be reprocessed on every frame. The UI first asks the cache for an effect-processed bitmap and falls back to the raw source image when needed.
+- **Real-time collaboration via lightweight ops:** Canvas edits sync as small operation events such as `transform`, `effect`, `opacity`, `blend_mode`, `layer_add`, and `layer_remove`. Large image blobs are uploaded once to Firebase Storage, while Realtime Database carries only the layer metadata and operation stream.
+- **50 ms operation throttle:** Transform and effect changes are throttled to one network op every 50 ms, roughly 20 updates per second. That keeps collaboration fluid without flooding Firebase during drag gestures; final pointer-up state is still sent immediately so collaborators land on the exact final position.
+- **Optimistic local updates:** Local layer state updates immediately before remote sync completes, so the editor feels instant even while Firebase writes happen in the background.
+- **Offline-first library:** Room stores the canvas library, pinned state, metadata, and thumbnails locally. Firebase sync refreshes the local cache, but the home screen stays fast and useful even across app restarts.
+- **Separated storage model:** Firestore stores canvas library and membership metadata, Realtime Database stores fast collaboration state, and Firebase Storage stores original layer images and generated thumbnails. This avoids pushing image bytes through the real-time collaboration channel.
+- **Session cleanup and ownership handling:** The app clears local user data on logout/account switch and includes collaborator removal, ownership transfer, share codes, and account deletion flows.
+
 ## Screenshots
 
 | Canvas Library | Editor | Layers | Add Layer | Effects | Text |
@@ -45,19 +59,6 @@ The app keeps canvas metadata locally in Room for a fast library experience, syn
 - Gemini image generation API
 - JUnit and Android instrumented tests
 
-## Engineering Highlights
-
-CanvasX has several implementation details that go beyond a standard CRUD Android app:
-
-- **Hybrid render pipeline:** The editor uses an instant Compose display path for responsive gestures and a background processing path for expensive image work. This keeps dragging, scaling, and layer selection responsive while the render engine recomputes processed bitmaps asynchronously.
-- **GPU-assisted effects with AGSL:** Effects are implemented with Android Graphics Shading Language shaders and rendered through `RenderNode`, `HardwareRenderer`, and `ImageReader`. Moving effect work onto the GPU is a better fit for pixel-heavy operations like blur, saturation, exposure, sharpening, vignette, grain, and color temperature than repeatedly transforming large bitmaps on the UI thread.
-- **Render caching:** Processed layer bitmaps are cached by layer so unchanged layers do not need to be reprocessed on every frame. The UI first asks the cache for an effect-processed bitmap and falls back to the raw source image when needed.
-- **Real-time collaboration via lightweight ops:** Canvas edits sync as small operation events such as `transform`, `effect`, `opacity`, `blend_mode`, `layer_add`, and `layer_remove`. Large image blobs are uploaded once to Firebase Storage, while Realtime Database carries only the layer metadata and operation stream.
-- **50 ms operation throttle:** Transform and effect changes are throttled to one network op every 50 ms, roughly 20 updates per second. That keeps collaboration fluid without flooding Firebase during drag gestures; final pointer-up state is still sent immediately so collaborators land on the exact final position.
-- **Optimistic local updates:** Local layer state updates immediately before remote sync completes, so the editor feels instant even while Firebase writes happen in the background.
-- **Offline-first library:** Room stores the canvas library, pinned state, metadata, and thumbnails locally. Firebase sync refreshes the local cache, but the home screen stays fast and useful even across app restarts.
-- **Separated storage model:** Firestore stores canvas library and membership metadata, Realtime Database stores fast collaboration state, and Firebase Storage stores original layer images and generated thumbnails. This avoids pushing image bytes through the real-time collaboration channel.
-- **Session cleanup and ownership handling:** The app clears local user data on logout/account switch and includes collaborator removal, ownership transfer, share codes, and account deletion flows.
 
 ## Architecture
 
@@ -71,49 +72,6 @@ The project follows a layered Android architecture:
 
 Rendering is split into an instant display path and an asynchronous processing path. The editor can keep gestures responsive while background rendering applies heavier effects and recomposites the canvas.
 
-## Getting Started
-
-### Prerequisites
-
-- Android Studio or the Android SDK command-line tools
-- JDK 17
-- Android SDK platform 36 or newer
-- A Firebase project configured for package `com.my_app.art_collab`
-
-### Firebase Setup
-
-Place your Firebase Android config at:
-
-```text
-app/google-services.json
-```
-
-Create a local `local.properties` file with your SDK path and Gemini API key:
-
-```properties
-sdk.dir=/path/to/Android/sdk
-GEMINI_API_KEY=your_gemini_api_key
-```
-
-Do not commit `local.properties`; it is intentionally ignored.
-
-### Run Locally
-
-```bash
-./gradlew :app:assembleDebug
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
-
-Or open the project in Android Studio and run the `app` configuration.
-
-## Validation
-
-The final release-prep pass was verified with:
-
-```bash
-./gradlew testDebugUnitTest :app:assembleDebug
-./gradlew connectedDebugAndroidTest
-```
 
 ## Project Highlights For Reviewers
 
