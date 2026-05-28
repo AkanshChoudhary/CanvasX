@@ -255,7 +255,11 @@ class RenderEngine @Inject constructor(
 
         val textPaint = android.text.TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = content.color
-            textSize = content.fontSize * context.resources.displayMetrics.scaledDensity
+            textSize = android.util.TypedValue.applyDimension(
+                android.util.TypedValue.COMPLEX_UNIT_SP,
+                content.fontSize,
+                context.resources.displayMetrics
+            )
             typeface = android.graphics.Typeface.create(content.fontFamily, typefaceStyle)
             if (content.isUnderline) isUnderlineText = true
         }

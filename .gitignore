@@ -8,6 +8,8 @@
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 .DS_Store
+/.cursor/
+/.firebase/
 /build
 /captures
 .externalNativeBuild
@@ -15,3 +17,4 @@
 local.properties
 *.apks
 app/release/
+app/src/main/java/**/*.md

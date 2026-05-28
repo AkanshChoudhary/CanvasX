@@ -58,9 +58,9 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.my_app.art_collab.ui.screens.canvas_editor.components.AddLayerSheet
 import com.my_app.art_collab.ui.screens.canvas_editor.components.AiGenerationDialog
 import com.my_app.art_collab.ui.screens.canvas_editor.components.BlendModePickerSheet
