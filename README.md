@@ -48,7 +48,7 @@ The app keeps canvas metadata locally in Room for a fast library experience, syn
 ## Tech Stack
 
 - Kotlin and Jetpack Compose
-- Material 3 and AndroidX Navigation
+- Material3 and AndroidX Navigation
 - Hilt dependency injection
 - Room local persistence
 - Firebase Authentication, Firestore, Realtime Database, and Storage
